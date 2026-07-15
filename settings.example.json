@@ -1,0 +1,111 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/agent-wake-inject.py",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name guard --legacy-script ~/.agent-memory/hooks/agent-log-guard.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name trace-write-intent --legacy-script ~/.agent-memory/hooks/trace-write-intent.py",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name spawn-check --legacy-script ~/.agent-memory/hooks/agent-spawn-check.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash|Task|WebFetch|WebSearch|ToolSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_post_tool --name cache-session-id --legacy-script ~/.agent-memory/hooks/cache-session-id.py",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|Task|WebFetch|WebSearch|ToolSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_post_tool --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_precompact --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_stop --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_stop --name trace-stop-check --legacy-script ~/.agent-memory/hooks/trace-stop-check.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_session_end --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
