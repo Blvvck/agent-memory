@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/agent-wake-inject.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/wake.js",
             "timeout": 3
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name guard --legacy-script ~/.agent-memory/hooks/agent-log-guard.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_pre_tool --name guard",
             "timeout": 10
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name trace-write-intent --legacy-script ~/.agent-memory/hooks/trace-write-intent.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_pre_tool --name trace-write-intent --script ~/.agent-memory/dist/hooks/core/trace-write-intent.js",
             "timeout": 5
           }
         ]
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_pre_tool --name spawn-check --legacy-script ~/.agent-memory/hooks/agent-spawn-check.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_pre_tool --name spawn-check --script ~/.agent-memory/dist/hooks/core/agent-spawn-check.js",
             "timeout": 5
           }
         ]
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_post_tool --name cache-session-id --legacy-script ~/.agent-memory/hooks/cache-session-id.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_post_tool --name cache-session-id --script ~/.agent-memory/dist/hooks/harnesses/claude-code/cache-session.js",
             "timeout": 3
           }
         ]
@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_post_tool --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_post_tool --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
             "timeout": 5
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_precompact --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_precompact --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
             "timeout": 30
           }
         ]
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_stop --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_stop --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
             "timeout": 30
           }
         ]
@@ -90,7 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_stop --name trace-stop-check --legacy-script ~/.agent-memory/hooks/trace-stop-check.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_stop --name trace-stop-check --script ~/.agent-memory/dist/hooks/core/trace-stop-check.js",
             "timeout": 5
           }
         ]
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.agent-memory/hooks/claude_dispatch.py --event claude_session_end --name brain-sync --legacy-script ~/.agent-memory/hooks/brain-sync.py",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_session_end --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
             "timeout": 10
           }
         ]

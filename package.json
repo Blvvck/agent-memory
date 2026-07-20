@@ -1,0 +1,32 @@
+{
+  "name": "@blvvck/agent-memory",
+  "version": "0.1.0",
+  "description": "Persistent memory and a reusable body structure for AI agents",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "agent-log": "dist/agent-log.js",
+    "trace-search": "dist/trace-search.js",
+    "agent-session": "dist/current-session.js"
+  },
+  "files": [
+    ".agents/",
+    "AGENTS.md",
+    "dist/",
+    "protocols/",
+    "README.md",
+    "settings.example.json"
+  ],
+  "scripts": {
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/mark-bins.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "typescript": "^5.9.0"
+  }
+}

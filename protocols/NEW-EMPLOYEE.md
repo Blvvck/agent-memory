@@ -98,7 +98,7 @@ If the agent later decides a file should not exist, that happens after wake in t
 
 ### WAKE.md (Optional but Enforced)
 
-If the role requires context beyond the standard brain files (research docs, domain guides, reference materials), create `WAKE.md` listing those files. CLAUDE.md spawn template tells agents to check for WAKE.md and read any files it lists. The `agent-spawn-check.py` hook blocks Agent tool spawns that don't mention WAKE.md for agents that have one.
+If the role requires context beyond the standard brain files (research docs, domain guides, reference materials), create `WAKE.md` listing those files. The shared spawn-check hook blocks Agent tool spawns that don't mention WAKE.md for agents that have one.
 
 **Example (an agent's WAKE.md):**
 ```markdown

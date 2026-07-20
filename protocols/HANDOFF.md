@@ -37,7 +37,7 @@ agent sessions end. Context is lost. Next agent wakes up with no idea what happe
 **Hooks enforce this automatically:**
 - **PreCompact hook** — prompts you to sync brain before context compression
 - **Stop hook** — activity-weighted check when you finish responding. Heavy work without sync = blocked until you reconcile.
-- **Heartbeat** (`python3 ~/.agent-memory/hooks/heartbeat.py`) — periodic staleness check across all agents
+- **Heartbeat integration** (optional host tooling) — periodic staleness checks across agents; it is separate from this package's Node runtime
 - Skill doc: `~/.agent-memory/skills/brain-sync-hooks.md`
 
 **SLEEP (final sync):**
@@ -94,10 +94,7 @@ The `[session:ID]` tag gives you a fallback to search the full session transcrip
 
 **When notes aren't enough:**
 If a future session needs more context than the note provides, use session search:
-```bash
-python3 ~/.agent-memory/tools/session-search.py <session-id> "keywords from note" --project <name>
-```
-This returns only the matching conversation segments — not the entire session.
+Use the session-search tool provided by your agent runtime, if available. Session search is optional and is not part of this package's runtime.
 
 **Session search flags** (see `~/.agent-memory/skills/session-search.md` for full reference):
 - `--since` / `--until` — natural language dates (yesterday, last week, etc.)

@@ -9,7 +9,8 @@ A scaffold for giving an AI agent a persistent memory and a body, so its next se
 | `AGENTS.md` | The single entry point every harness loads | Once, at setup |
 | `.agents/example/` | A full agent body template (identity + memory) | Copy it per agent, then edit |
 | `agent-log` | The validated writer for memory files | Every time an agent writes a trace |
-| `hooks/` | Wake, sync, and stop-enforcement hooks | Once, when you wire your harness |
+| `hooks/core/` | Shared dispatch for protected writes, spawn requirements, and trace enforcement | Invoked by harness adapters |
+| `hooks/harnesses/` | Harness-specific adapters grouped by runtime | Once, when you wire your harness |
 | `protocols/` | Operating playbooks (bootstrap, new-agent, review, handoff, team) | When the agent needs a procedure |
 | `settings.example.json` | The hook wiring for Claude Code | Once, when you configure hooks |
 
@@ -23,14 +24,19 @@ An agent works in a loop:
 
 The agent improves because its next session reads what its last session wrote.
 
+## Runtime
+
+The runtime is TypeScript compiled to JavaScript and requires Node.js 18 or later. The published npm package includes the compiled runtime, so users do not need Python or a TypeScript compiler.
+
 ## Setup
 
 ### 1. Install
 
-Copy the repo to `~/.agent-memory/` (or anywhere; adjust the paths that follow to match):
+Copy the repo to `~/.agent-memory/`, install the build dependencies, and compile the runtime:
 
 ```bash
 cp -r agent-memory ~/.agent-memory
+cd ~/.agent-memory && npm install && npm run build
 ```
 
 ### 2. Point your harness at the entry point
@@ -54,7 +60,7 @@ Fill in `soul.md` (identity), `heart.md` (who it works with), and `work.md` (its
 
 ### 4. Wire the hooks
 
-Copy `settings.example.json` into your harness's settings, adjusting each path to where you installed the files. The hooks are what force the loop to actually happen — without them, the agent has to remember to write on its own, and it won't.
+`settings.example.json` shows the Claude Code wiring. Harness adapters live under `hooks/harnesses/<harness>/` and translate that runtime's hook events to shared memory checks in `hooks/core/`. Hooks that depend on a harness-specific transcript format stay with that harness. The example invokes the compiled JavaScript under `dist/`; adjust the install path if needed.
 
 ### 5. Write through the writer
 
@@ -71,7 +77,7 @@ agent-log --file ~/.agent-memory/agents/my-agent/brain/memory.md \
 
 - **Agent identity** — `soul.md`, `heart.md`, `work.md`, plus the `core/` and `mind/` files. This is the slow-changing self that stays stable across sessions.
 - **Read limits** — the wake slices in `AGENTS.md` (soul top 30 lines, memory top 80, and so on). Tune these to your context budget; they trade recall for cost.
-- **The base directory** — the writer and hooks expect bodies under `~/.agent-memory/agents/<name>/`. If you install elsewhere, change the base path in `protected_log.py` and the hook scripts to match.
+- **The base directory** — the writer and hooks expect bodies under `~/.agent-memory/agents/<name>/`. If you install elsewhere, change the base path in `src/protected-log.ts` and the hook scripts to match.
 - **The team layer** — the `sprint`, `standup`, and `leaderboard` protocols are optional. Turn them on only when several agents need to coordinate with each other. A single agent with memory doesn't need them.
 
 ## Why files, not a database
