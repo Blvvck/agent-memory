@@ -1,4 +1,4 @@
-import { dispatch } from "../../core/dispatch";
+import { dispatchWithSource } from "../../core/dispatch";
 
 export interface HookResult {
   blocked: boolean;
@@ -88,12 +88,5 @@ export function parseHookResult(result: Record<string, unknown>): HookResult {
 
 export function dispatchHook(event: string, payload: Record<string, unknown>): HookResult {
   const normalized = normalizeToolPayload(event, payload);
-  const previousSource = process.env.AGENT_HOOK_SOURCE;
-  process.env.AGENT_HOOK_SOURCE = "opencode";
-  try {
-    return parseHookResult(dispatch(normalized) as unknown as Record<string, unknown>);
-  } finally {
-    if (previousSource === undefined) delete process.env.AGENT_HOOK_SOURCE;
-    else process.env.AGENT_HOOK_SOURCE = previousSource;
-  }
+  return parseHookResult(dispatchWithSource("opencode", normalized) as unknown as Record<string, unknown>);
 }

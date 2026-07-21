@@ -115,6 +115,17 @@ export function dispatch(payload: HookPayload): HookResult {
   };
 }
 
+export function dispatchWithSource(source: string, payload: HookPayload): HookResult {
+  const previousSource = process.env.AGENT_HOOK_SOURCE;
+  process.env.AGENT_HOOK_SOURCE = source;
+  try {
+    return dispatch(payload);
+  } finally {
+    if (previousSource === undefined) delete process.env.AGENT_HOOK_SOURCE;
+    else process.env.AGENT_HOOK_SOURCE = previousSource;
+  }
+}
+
 function main(): void {
   process.stdout.write(`${JSON.stringify(dispatch(readPayload()))}\n`);
 }

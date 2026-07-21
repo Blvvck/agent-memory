@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
-import { dispatch, type HookResult } from "../../core/dispatch";
+import { dispatchWithSource, type HookResult } from "../../core/dispatch";
 
 function readPayload(): Record<string, unknown> {
   try {
@@ -13,14 +13,7 @@ function readPayload(): Record<string, unknown> {
 }
 
 function dispatchCodex(payload: Record<string, unknown>): HookResult {
-  const previousSource = process.env.AGENT_HOOK_SOURCE;
-  process.env.AGENT_HOOK_SOURCE = "codex";
-  try {
-    return dispatch(payload as Parameters<typeof dispatch>[0]);
-  } finally {
-    if (previousSource === undefined) delete process.env.AGENT_HOOK_SOURCE;
-    else process.env.AGENT_HOOK_SOURCE = previousSource;
-  }
+  return dispatchWithSource("codex", payload as Parameters<typeof dispatchWithSource>[1]);
 }
 
 function emitResult(event: string, result: HookResult): void {

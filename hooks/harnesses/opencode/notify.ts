@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { appendFileSync, mkdirSync } from "node:fs";
-import { STATE_DIR, appendEvent, parseJsonBytes, readStdinBytes, runPipelineCapture, updateCurrentSession } from "../../../common";
+import { STATE_DIR, parseJsonBytes, readStdinBytes, recordHarnessEvent, runPipelineCapture } from "../../../common";
 import { dispatchHook, normalizeToolPayload, parseHookResult, type HookResult } from "./dispatch";
 
 type Payload = Record<string, unknown>;
@@ -135,14 +135,14 @@ function main(): void {
   const extra = summarizePayload(payload);
   extra.transcript_path = transcriptPath ?? undefined;
 
-  updateCurrentSession("opencode", { sessionId, event: eventName, cwd, active, extra });
-  appendEvent({
+  recordHarnessEvent({
     source: "opencode",
-    type: "notify",
     event: eventName,
-    session_id: sessionId,
+    sessionId,
     cwd,
-    ...Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== undefined && value !== null)),
+    active,
+    extra,
+    details: Object.fromEntries(Object.entries(extra).filter(([, value]) => value !== undefined && value !== null)),
   });
 
   let result: HookResult;

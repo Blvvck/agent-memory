@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
-import { dispatch } from "../../core/dispatch";
+import { dispatchWithSource } from "../../core/dispatch";
 
 const toolMappings: Record<string, string> = {
   run_command: "Bash",
@@ -41,14 +41,7 @@ function normalizeArgs(toolName: string, raw: Payload): Payload {
 }
 
 function dispatchToCore(payload: Payload) {
-  const previousSource = process.env.AGENT_HOOK_SOURCE;
-  process.env.AGENT_HOOK_SOURCE = "antigravity";
-  try {
-    return dispatch(payload as Parameters<typeof dispatch>[0]);
-  } finally {
-    if (previousSource === undefined) delete process.env.AGENT_HOOK_SOURCE;
-    else process.env.AGENT_HOOK_SOURCE = previousSource;
-  }
+  return dispatchWithSource("antigravity", payload as Parameters<typeof dispatchWithSource>[1]);
 }
 
 function main(): void {

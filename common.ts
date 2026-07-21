@@ -211,6 +211,32 @@ export function updateCurrentSession(
   return payload;
 }
 
+export function recordHarnessEvent(options: {
+  source: string;
+  event: string;
+  sessionId?: string | null;
+  cwd?: string;
+  active?: boolean;
+  extra?: Record<string, unknown>;
+  details?: Record<string, unknown>;
+}): void {
+  updateCurrentSession(options.source, {
+    sessionId: options.sessionId,
+    event: options.event,
+    cwd: options.cwd,
+    active: options.active,
+    extra: options.extra,
+  });
+  appendEvent({
+    source: options.source,
+    type: "notify",
+    event: options.event,
+    session_id: options.sessionId,
+    cwd: options.cwd,
+    ...options.details,
+  });
+}
+
 function *iterPipelineScripts(eventName: string): Generator<string> {
   for (const directory of [join(pipelineDirectory, "all.d"), join(pipelineDirectory, `${eventKey(eventName)}.d`)]) {
     let entries: string[];
