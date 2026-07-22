@@ -9,7 +9,7 @@ A scaffold for giving an AI agent a persistent memory and a body, so its next se
 | `AGENTS.md` | The single entry point every harness loads | Once, at setup |
 | `.agents/example/` | A full agent body template (identity + memory) | Copy it per agent, then edit |
 | `agent-log` | The validated writer for memory files | Every time an agent writes a trace |
-| `hooks/core/` | Shared dispatch for protected writes, spawn requirements, and trace enforcement | Invoked by harness adapters |
+| `hooks/core/` | Shared dispatch and memory rules for protected writes, spawn requirements, traces, and brain sync | Invoked by harness adapters |
 | `hooks/harnesses/` | Harness-specific adapters grouped by runtime | Once, when you wire your harness |
 | `protocols/` | Operating playbooks (bootstrap, new-agent, review, handoff, team) | When the agent needs a procedure |
 | `settings.example.json` | The hook wiring for Claude Code | Once, when you configure hooks |
@@ -60,7 +60,7 @@ Fill in `soul.md` (identity), `heart.md` (who it works with), and `work.md` (its
 
 ### 4. Wire the hooks
 
-`settings.example.json` shows the Claude Code wiring. Harness adapters live under `hooks/harnesses/<harness>/` and translate that runtime's hook events to shared memory checks in `hooks/core/`. Hooks that depend on a harness-specific transcript format stay with that harness. The example invokes the compiled JavaScript under `dist/`; adjust the install path if needed.
+`settings.example.json` shows the Claude Code wiring. Harness adapters live under `hooks/harnesses/<harness>/` and translate that runtime's hook events and transcript format into shared memory checks in `hooks/core/`. Brain-sync policy is shared; Claude's JSONL transcript parser stays in its adapter. The example invokes the compiled JavaScript under `dist/`; adjust the install path if needed.
 
 ### 5. Write through the writer
 
