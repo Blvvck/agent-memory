@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_post_tool --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_post_tool --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync-adapter.js",
             "timeout": 5
           }
         ]
@@ -70,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_precompact --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_precompact --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync-adapter.js",
             "timeout": 30
           }
         ]
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_stop --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_stop --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync-adapter.js",
             "timeout": 30
           }
         ]
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_session_end --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync.js",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_session_end --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync-adapter.js",
             "timeout": 10
           }
         ]
