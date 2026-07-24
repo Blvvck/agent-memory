@@ -149,8 +149,10 @@ function main(): void {
   if (eventName === "tool_execute_before") result = dispatchHook("PreToolUse", payload);
   else if (eventName === "tool_execute_after") result = dispatchHook("PostToolUse", payload);
   else if (eventName === "session_compacting") result = dispatchHook("PreCompact", payload);
+  else if (eventName === "chat_message") result = dispatchHook("UserPromptSubmit", payload);
+  else if (eventName === "session_start") result = mergeResults(dispatchHook("SessionStart", payload), runPipelineResult("session_start", payload));
   else if (eventName === "session_end") result = mergeResults(dispatchHook("SessionEnd", payload), runPipelineResult("session_end", payload));
-  else if (eventName === "turn_complete") result = runPipelineResult("turn_complete", payload);
+  else if (eventName === "turn_complete") result = mergeResults(dispatchHook("Stop", payload), runPipelineResult("turn_complete", payload));
   else result = runPipelineResult(eventName, payload);
 
   const code = emitResult(result);

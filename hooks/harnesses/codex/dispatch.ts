@@ -29,13 +29,10 @@ function emitResult(event: string, result: HookResult): void {
   }
   if (!result.contexts.length) return;
   const context = [...new Set(result.contexts)].join("\n\n");
-  if (!["PreToolUse", "PostToolUse", "PostToolUseFailure"].includes(event)) {
-    process.stdout.write(`${JSON.stringify({ systemMessage: context })}\n`);
-  } else {
-    process.stdout.write(`${JSON.stringify({
-      hookSpecificOutput: { hookEventName: event, additionalContext: context },
-    })}\n`);
-  }
+  if (event === "PreCompact") process.stdout.write(`${JSON.stringify({ continue: false, stopReason: context })}\n`);
+  else if (event === "Stop") process.stdout.write(`${JSON.stringify({ decision: "block", reason: context })}\n`);
+  else if (["PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit", "SessionStart"].includes(event)) process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } })}\n`);
+  else process.stdout.write(`${JSON.stringify({ systemMessage: context })}\n`);
 }
 
 function main(): void {

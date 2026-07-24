@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { runBrainSync, type MemoryTranscriptEvent } from "../../core/brain-sync";
+import { hasBrainSyncSessionState, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, storeBrainSyncSnapshot, type MemoryTranscriptEvent } from "../../core/brain-sync";
+import { shortSessionLabel } from "../../../common";
 
 type Dict = Record<string, any>;
 
@@ -53,25 +54,48 @@ function main(): void {
   catch { return; }
 
   const transcriptPath = typeof payload.transcript_path === "string" ? payload.transcript_path : "";
-  if (!transcriptPath || !existsSync(transcriptPath)) return;
-  let transcriptSize = 0;
-  try { transcriptSize = statSync(transcriptPath).size; }
-  catch { return; }
-
+  const event = String(payload.hook_event_name || "");
+  activeHookEvent = event;
+  if (event !== "SessionStart" && (!transcriptPath || !existsSync(transcriptPath))) return;
   const sessionId = String(payload.session_id || "unknown");
-  const context = runBrainSync(String(payload.hook_event_name || ""), {
+  const cwd = String(payload.cwd || process.cwd());
+  if (sessionId !== "unknown" && (event === "SessionStart" || !hasBrainSyncSessionState("claude", sessionId))) recoverStaleSessions();
+  const events = readTranscript(transcriptPath);
+  if (transcriptPath && existsSync(transcriptPath)) storeBrainSyncSnapshot("claude", sessionId, events);
+  const context = runBrainSync(event, {
     source: "claude",
     sessionId,
-    sessionLabel: sessionLabel(sessionId),
-    cwd: String(payload.cwd || process.cwd()),
+    sessionLabel: shortSessionLabel("claude", sessionId) || sessionLabel(sessionId),
+    cwd,
     toolName: typeof payload.tool_name === "string" ? payload.tool_name : undefined,
-    transcriptSize,
-    events: readTranscript(transcriptPath),
+    events,
   });
-  if (context) process.stdout.write(`${JSON.stringify({ continue: true, additionalContext: context })}\n`);
+  if (sessionId !== "unknown") recordBrainSyncSessionEvent("claude", sessionId, cwd, event);
+  if (!context) return;
+  if (event === "PreCompact") process.stdout.write(`${JSON.stringify({ decision: "block", reason: context })}\n`);
+  else if (event === "Stop") process.stdout.write(`${JSON.stringify({ decision: "block", reason: context })}\n`);
+  else if (event === "SessionStart") process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } })}\n`);
+  else if (event === "PostToolUse") process.stdout.write(`${JSON.stringify({
+    hookSpecificOutput: { hookEventName: event, additionalContext: context },
+  })}\n`);
 }
+
+function reportHookError(error: unknown): void {
+  const reason = error instanceof Error ? error.message : String(error);
+  const context = `Agent Memory brain-sync could not run: ${reason}. Resolve the selected project memory layout before continuing.`;
+  const event = activeHookEvent;
+  if (event === "PreCompact" || event === "Stop") {
+    process.stdout.write(`${JSON.stringify({ decision: "block", reason: context })}\n`);
+  } else if (event === "SessionStart" || event === "PostToolUse") {
+    process.stdout.write(`${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } })}\n`);
+  } else {
+    process.stdout.write(`${JSON.stringify({ systemMessage: context })}\n`);
+  }
+}
+
+let activeHookEvent = "";
 
 if (require.main === module) {
   try { main(); }
-  catch { process.exitCode = 0; }
+  catch (error) { reportHookError(error); }
 }

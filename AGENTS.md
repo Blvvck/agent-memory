@@ -21,11 +21,16 @@ Read these files first, in this order, and only in slices. Full reads of growing
 | File | Read | Why |
 |------|------|-----|
 | `soul.md` | top 30 lines | who the agent is |
+| `work.md` | top 30 lines | its role and craft |
 | `brain/worldview.md` | top 20 lines | what it believes |
 | `heart.md` | top 20 lines | who it works with |
 | `brain/memory.md` | top 80 lines | what it did, newest first |
 | `brain/learnings.md` | top 50 lines | recent mistakes to avoid |
 | `brain/patterns.md` | top 50 lines | recent methods that worked |
+
+Named subagents with a body receive this same wake contract. Bodies may be shared under `~/.agent-memory/agents/<name>/` or scoped to a project under `agents/<name>/` inside its selected memory directory; a project body overrides a shared body with the same name. Spawn instructions must name every file above by that body's actual path. If it has `WAKE.md`, include that file and every file path it lists. The hook enforces this contract only when the spawn resolves to a registered named body; ordinary harness subagents pass through.
+
+At wake, check `~/.agent-memory/NOTIFICATIONS.md` when it exists. For project work, read `CONTEXT.md` and recent `ACTIVITY.md` from the selected project memory directory. The portable directory is `.agent-memory/`; harness layouts can use `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. For global or cross-project work, read the newest entries in `~/.agent-memory/ACTIVITY.md` when present. Include relevant project context and activity paths in subagent instructions when the delegated task depends on them.
 
 ## Syncing: write as you work
 
@@ -52,7 +57,7 @@ Each entry points back to the older entry it relates to, and the older entry get
 
 ## Protected logs: write through one door
 
-`memory.md`, `learnings.md`, and `patterns.md` are protected. Do not edit them directly. Every write goes through `agent-log`, which validates the entry, takes a lock, and replaces the file atomically. A direct edit is blocked.
+`memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Do not edit them directly. Every write goes through `agent-log`, which validates the entry, takes a lock, and replaces the file atomically. A direct edit is blocked.
 
 ```bash
 agent-log --file .agents/example/brain/memory.md \
@@ -60,6 +65,12 @@ agent-log --file .agents/example/brain/memory.md \
   --trace "none (new topic)" \
   --agent Example --cli claude --session-id <real-session-id> --project <project>
 ```
+
+## Project and global work logs
+
+When a project has a selected memory directory (`.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`), read its `CONTEXT.md` before changing project files and record meaningful project work in that directory's `ACTIVITY.md`. Record cross-project or global system work in `~/.agent-memory/ACTIVITY.md`. These files are distinct from an agent's `brain/memory.md`: the activity log records work in a scope, while brain memory preserves context for that agent across sessions.
+
+Use the selected project memory directory's `IDEAS.md` for useful project ideas outside the current task. Use `~/.agent-memory/NOTIFICATIONS.md` when a person or agent needs to respond or take action. The sprint, backlog, feature, project lounge, and leaderboard files are optional; use them only when the project opts into those workflows, and read them when relevant to the task. A project `COMMANDS.md` is not required; inspect the repository's own documentation and manifests for commands.
 
 ## What "recursive self-improvement" means here
 

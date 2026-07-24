@@ -40,7 +40,7 @@ export function sessionVariants(sessionId: unknown): Set<string> {
     variants.add(short);
     variants.add(`mac:${short}`);
     variants.add(`omen:${short}`);
-    for (const cli of ["claude", "codex", "agy", "antigravity", "opencode"]) {
+    for (const cli of ["claude", "codex", "agy", "antigravity", "opencode", "cursor"]) {
       variants.add(`${cli}:${short}`);
       variants.add(`mac:${cli}:${short}`);
       variants.add(`omen:${cli}:${short}`);

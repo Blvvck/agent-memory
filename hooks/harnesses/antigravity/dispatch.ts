@@ -7,6 +7,7 @@ const toolMappings: Record<string, string> = {
   run_command: "Bash",
   write_to_file: "Write",
   replace_file_content: "Edit",
+  multi_replace_file_content: "Edit",
   view_file: "Read",
   grep_search: "Grep",
   find_by_name: "Glob",
@@ -81,7 +82,7 @@ function main(): void {
     } else {
       process.stdout.write(`${JSON.stringify({ decision: "stop" })}\n`);
     }
-  } else if (event === "PreInvocation") {
+  } else if (["SessionStart", "PreInvocation", "PostInvocation"].includes(event)) {
     const contexts = [...result.contexts];
     if (sessionId) {
       const shortId = sessionId.split(":").at(-1)?.slice(0, 8) ?? "";

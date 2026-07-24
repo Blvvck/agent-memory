@@ -1,6 +1,7 @@
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { projectMemoryRoot } from "./memory-paths";
 
 export class ProtectedLogError extends Error {}
 
@@ -24,9 +25,10 @@ interface Entry {
 }
 
 const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD"]);
+const projectMemoryDirectories = [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"];
 const invalidSessionParts = ["unknown", "current", "placeholder", "dummy", "test", "fake"];
 const invalidTraceValues = new Set(["todo", "tbd", "pending", "add later", "placeholder"]);
-const cliPattern = "claude|codex|agy|antigravity|opencode";
+const cliPattern = "claude|codex|agy|antigravity|opencode|cursor";
 const headerPattern = new RegExp(`^([-*]\\s+)?\\[(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z)\\](?: \\[([A-Za-z0-9][A-Za-z0-9._-]*)\\])? @([A-Za-z][A-Za-z0-9_-]*) \\[session:((${cliPattern}):([A-Za-z0-9][A-Za-z0-9._-]*))\\]: (\\S.*)$`, "gm");
 const legacyHeaderPattern = /^([-*]\s+)?\[(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)\]((?:\s+\[[^\]]+\])*)\s+@([A-Za-z][A-Za-z0-9_-]*)\s+\[session:([^\]]+)\](?:\s+\[[^\]]+\])?:\s+(\S.*)$/gm;
 const tracePattern = /^\s*(?:[-*]\s*)?↪\s*trace:\s*(.+?)\s*$/gm;
@@ -40,7 +42,7 @@ function matches(pattern: RegExp, text: string): RegExpExecArray[] {
 
 function validSession(session: string): boolean {
   const colon = session.indexOf(":");
-  if (colon < 0 || !["claude", "codex", "agy", "antigravity", "opencode"].includes(session.slice(0, colon))) return false;
+  if (colon < 0 || !["claude", "codex", "agy", "antigravity", "opencode", "cursor"].includes(session.slice(0, colon))) return false;
   const id = session.slice(colon + 1).toLowerCase();
   return Boolean(id) && !invalidSessionParts.some((part) => id.includes(part));
 }
@@ -49,7 +51,7 @@ export function policyForPath(path: string): LogPolicy {
   const canonical = resolve(path);
   const name = basename(canonical).toUpperCase();
   if (name === "PATTERNS.MD") return { name: "patterns", requireContext: true, ordering: null };
-  if (name === "ACTIVITY.MD") return { name: "activity", requireContext: canonical !== resolve(homedir(), ".agent-memory", "comms", "ACTIVITY.md"), ordering: "newest" };
+  if (name === "ACTIVITY.MD") return { name: "activity", requireContext: true, ordering: "newest" };
   if (name === "NOTIFICATIONS.MD") return { name: "notifications", requireContext: true, ordering: "newest" };
   if (name === "MEMORY.MD" || name === "LEARNINGS.MD") return { name: name.toLowerCase().slice(0, -3), requireContext: true, ordering: "newest" };
   throw new ProtectedLogError(`unrecognized protected log: ${path}`);
@@ -79,19 +81,39 @@ export function canonicalProtectedLogPath(path: string): string {
   const raw = resolve(expanded);
   const canonical = existsSync(raw) ? realpathSync(raw) : raw;
   if (!protectedNames.has(basename(canonical).toUpperCase())) return canonical;
+  const name = basename(canonical).toUpperCase();
   let cursor = raw;
   let memoryDir: string | null = null;
   while (true) {
-    if (basename(cursor) === ".agent-memory") { memoryDir = cursor; break; }
+    if (projectMemoryDirectories.includes(basename(cursor))) { memoryDir = cursor; break; }
     const parent = dirname(cursor);
     if (parent === cursor) break;
     cursor = parent;
   }
+  if (memoryDir) {
+    const selectedMemoryDir = projectMemoryRoot(dirname(memoryDir));
+    if (resolve(selectedMemoryDir) !== resolve(memoryDir)) {
+      throw new ProtectedLogError(`protected log must use the project's one selected memory directory (${selectedMemoryDir}); ${memoryDir} is not selected. Update .agent-memory-layout only when intentionally changing the project's memory location.`);
+    }
+  }
   const root = gitMainRoot(raw);
+  if (name === "ACTIVITY.MD") {
+    const globalPath = resolve(homedir(), ".agent-memory", "ACTIVITY.md");
+    const projectPaths = root ? projectMemoryDirectories.map((directory) => resolve(root, directory, "ACTIVITY.md")) : [];
+    const isCanonicalProjectAlias = canonical !== raw && projectPaths.includes(canonical) && projectMemoryDirectories.some((directory) => raw.replace(/\\/g, "/").endsWith(`/${directory}/ACTIVITY.md`));
+    const isManifestProjectPath = !root && memoryDir && raw === resolve(memoryDir, "ACTIVITY.md");
+    if (raw !== globalPath && !projectPaths.includes(raw) && !isCanonicalProjectAlias && !isManifestProjectPath) {
+      throw new ProtectedLogError(`activity logs must be ~/.agent-memory/ACTIVITY.md or ACTIVITY.md under a supported project memory directory: ${path}`);
+    }
+  }
+  if (name === "NOTIFICATIONS.MD") {
+    const globalPath = resolve(homedir(), ".agent-memory", "NOTIFICATIONS.md");
+    if (raw !== globalPath) throw new ProtectedLogError(`notifications must be ~/.agent-memory/NOTIFICATIONS.md: ${path}`);
+  }
   if (memoryDir && root) {
-    const expected = resolve(root, ".agent-memory");
     const actual = existsSync(memoryDir) ? realpathSync(memoryDir) : resolve(memoryDir);
-    if (expected !== actual) throw new ProtectedLogError(`protected log must use the canonical project .agent-memory at ${expected}; worktree-local .agent-memory is not allowed (${memoryDir}). Use the main checkout path or symlink the worktree .agent-memory to it.`);
+    const expected = projectMemoryDirectories.map((directory) => resolve(root, directory));
+    if (!expected.includes(actual)) throw new ProtectedLogError(`protected log must use the canonical project memory directory (${expected.join(" or ")}); worktree-local project memory is not allowed (${memoryDir}). Use the main checkout path or symlink the memory directory to it.`);
   }
   return canonical;
 }
@@ -175,7 +197,7 @@ function projectFor(path: string, runtime: Record<string, unknown>): string {
     if (globalRelative[0] === "agents" && globalRelative.length === 4 && globalRelative[2] === "brain" && runtime.project) derived = undefined;
   } else {
     const parts = canonical.split(/[\\/]/);
-    const memoryIndex = parts.lastIndexOf(".agent-memory");
+    const memoryIndex = Math.max(...projectMemoryDirectories.map((directory) => parts.lastIndexOf(directory)));
     if (memoryIndex > 0) derived = parts[memoryIndex - 1];
   }
   const supplied = typeof runtime.project === "string" ? runtime.project.trim() : "";
@@ -391,7 +413,7 @@ export function repairEntryHeader(path: string, header: string, replacement: str
     if (entry.agent !== agent) throw new ProtectedLogError(`agents may repair only their own entries; this entry belongs to @${entry.agent}`);
     const normalizedReplacement = replacement.trim().startsWith(entry.header.match(/^[-*]\s+/)?.[0] || "") ? replacement.trim() : `${entry.header.match(/^[-*]\s+/)?.[0] || ""}${replacement.trim()}`;
     const fields = (line: string): string[] => {
-      const match = /^([-*]\s+)?\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\](?: \[([A-Za-z0-9][A-Za-z0-9._-]*)\])? @([A-Za-z][A-Za-z0-9_-]*) \[session:((?:claude|codex|agy|antigravity|opencode):[A-Za-z0-9][A-Za-z0-9._-]*)\]: (\S.*)$/.exec(line);
+      const match = /^([-*]\s+)?\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\](?: \[([A-Za-z0-9][A-Za-z0-9._-]*)\])? @([A-Za-z][A-Za-z0-9_-]*) \[session:((?:claude|codex|agy|antigravity|opencode|cursor):[A-Za-z0-9][A-Za-z0-9._-]*)\]: (\S.*)$/.exec(line);
       if (!match) throw new ProtectedLogError("repair replacement is not a complete entry header");
       return [match[1] || "", match[2], match[3] || "", match[4], match[5], match[6]];
     };
@@ -402,7 +424,7 @@ export function repairEntryHeader(path: string, header: string, replacement: str
     const newTitle = newFields[5];
     if (!oldTitle.endsWith(newTitle) || newTitle === oldTitle) throw new ProtectedLogError("repair may only drop a leading segment of the subject");
     const dropped = oldTitle.slice(0, oldTitle.length - newTitle.length);
-    const nested = /^(?:[-*]\s+)?(?:\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\])?(?:\s*\[[A-Za-z0-9][A-Za-z0-9._-]*\])*\s*@([A-Za-z][A-Za-z0-9_-]*)\s*\[session:((?:claude|codex|agy|antigravity|opencode):[A-Za-z0-9][A-Za-z0-9._-]*)\]:\s*$/.exec(dropped);
+    const nested = /^(?:[-*]\s+)?(?:\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\])?(?:\s*\[[A-Za-z0-9][A-Za-z0-9._-]*\])*\s*@([A-Za-z][A-Za-z0-9_-]*)\s*\[session:((?:claude|codex|agy|antigravity|opencode|cursor):[A-Za-z0-9][A-Za-z0-9._-]*)\]:\s*$/.exec(dropped);
     if (!nested || nested[1] && nested[1] !== oldFields[1] || nested[2] !== entry.agent || !entry.session.startsWith(nested[3])) throw new ProtectedLogError("repair may only drop a nested copy of this entry's own header");
     if (oldEntries.some((item) => item.header === normalizedReplacement)) throw new ProtectedLogError("repair replacement duplicates an existing entry");
     const oldDisplay = traceDisplay(entry.header);
@@ -425,9 +447,10 @@ export function repairEntryHeader(path: string, header: string, replacement: str
 
 export function retagEntry(path: string, header: string, runtime: Record<string, unknown>): string {
   const canonical = canonicalProtectedLogPath(path);
-  const globalRoot = resolve(homedir(), ".agent-memory");
-  const relativePath = relative(globalRoot, canonical).split(/[\\/]/);
-  if (relativePath.length !== 4 || relativePath[0] !== "agents" || relativePath[2] !== "brain") throw new ProtectedLogError("retag applies only to global brain files under ~/.agent-memory/agents/<agent>/brain/");
+  const parts = canonical.split(/[\\/]/);
+  const memoryIndex = Math.max(...projectMemoryDirectories.map((directory) => parts.lastIndexOf(directory)));
+  const relativePath = parts.slice(memoryIndex + 1);
+  if (memoryIndex < 0 || relativePath.length !== 4 || relativePath[0] !== "agents" || relativePath[2] !== "brain") throw new ProtectedLogError("retag applies only to agent brain files under the global or selected project memory directory");
   const policy = policyForPath(canonical);
   if (!policy.requireContext) throw new ProtectedLogError("retag requires a log whose entries carry a project tag");
   const { context: project, agent } = runtimeFields(canonical, runtime, policy);

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { appendEvent, updateCurrentSession } from "../../common";
+import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
 
 interface HookPayload extends Record<string, unknown> {
   hook_event_name?: string;
@@ -92,6 +94,69 @@ function logInvocation(payload: HookPayload, event: string): void {
   }
 }
 
+function brainSyncEvent(payload: HookPayload): MemoryTranscriptEvent | null {
+  const toolName = String(payload.tool_name || "");
+  const rawInput = payload.tool_input && typeof payload.tool_input === "object" && !Array.isArray(payload.tool_input) ? payload.tool_input as Record<string, unknown> : {};
+  if (["PostToolUse", "PostToolUseFailure", "PostToolUseCapture"].includes(String(payload.hook_event_name || "")) && toolName) {
+    const filePath = String(rawInput.file_path || rawInput.filePath || "");
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    const memoryTarget = /(?:^|\/)agents\/[^/]+\/brain\//.test(normalizedPath) || /\/(?:\.agent-memory|\.claude|\.codex|\.opencode|\.agents|\.cursor)\//.test(normalizedPath);
+    const writeContent = rawInput.new_string ?? rawInput.newString ?? rawInput.content ?? rawInput.CodeContent;
+    const command = String(rawInput.command || "");
+    const toolInput = ["Edit", "Write"].includes(toolName)
+      ? { file_path: filePath, ...(memoryTarget && writeContent !== undefined ? { new_string: writeContent } : {}) }
+      : toolName === "Bash"
+        ? { workdir: rawInput.workdir || rawInput.cwd, command: /agent-log/i.test(command) ? command : /git\s+commit/i.test(command) ? "git commit" : /git\s+push/i.test(command) ? "git push" : /gh\s+pr\s+create/i.test(command) ? "gh pr create" : undefined }
+        : toolName === "agent-log"
+          ? rawInput
+          : {};
+    const response = payload.tool_response && typeof payload.tool_response === "object" ? payload.tool_response as Record<string, unknown> : {};
+    return {
+      role: "assistant",
+      type: String(payload.hook_event_name),
+      text: "",
+      toolCalls: [{ name: toolName, input: toolInput }],
+      toolResults: [{ isError: payload.error !== undefined || Boolean(response.isError) }],
+    };
+  }
+  if (["UserPromptSubmit", "PreInvocation"].includes(String(payload.hook_event_name || ""))) {
+    const message = payload.message && typeof payload.message === "object" ? payload.message as Record<string, unknown> : {};
+    const content = message.content ?? payload.parts;
+    const contentText = typeof content === "string" ? content : Array.isArray(content) ? content.flatMap((part) => {
+      if (typeof part === "string") return [part];
+      if (!part || typeof part !== "object") return [];
+      const block = part as Record<string, unknown>;
+      return typeof block.text === "string" ? [block.text] : typeof block.content === "string" ? [block.content] : [];
+    }).join("\n") : "";
+    const prompt = String(payload.prompt || payload.lastUserInput || contentText || "");
+    return prompt ? { role: "user", text: prompt, toolCalls: [], toolResults: [] } : null;
+  }
+  return null;
+}
+
+function runSharedBrainSync(source: string, event: string, payload: HookPayload, contexts: string[]): void {
+  if (source === "claude") return;
+  const sessionId = String(payload.session_id || "");
+  const cwd = String(payload.cwd || process.cwd());
+  const normalizedEvent = lifecycleEvent(source, event);
+  const captured = brainSyncEvent({ ...payload, hook_event_name: event });
+  let events = readBrainSyncEvents(source, sessionId);
+  if (captured) {
+    const eventId = source === "antigravity" && event === "PreInvocation" && captured.role === "user"
+      ? `prompt-${createHash("sha256").update(captured.text).digest("hex").slice(0, 20)}`
+      : String(payload.tool_use_id || payload.call_id || payload.callID || payload.message_id || payload.turn_id || "");
+    events = appendBrainSyncEvent(source, sessionId, captured, eventId || undefined);
+  }
+  if (source === "antigravity" && event === "PostToolUse") return;
+  if (!["PostToolUse", "PostToolUseFailure", "PreCompact", "Stop", "SessionEnd", "SessionStart", "PreInvocation", "PostInvocation"].includes(event)) return;
+  const prompt = runBrainSync(normalizedEvent, makeBrainSyncRequest(source, sessionId, cwd, events, String(payload.tool_name || "") || undefined));
+  if (prompt) contexts.push(prompt);
+}
+
+function lifecycleEvent(source: string, event: string): string {
+  return source === "antigravity" && event === "PreInvocation" ? "SessionStart" : source === "antigravity" && event === "PostInvocation" ? "PostToolUse" : event;
+}
+
 export function dispatch(payload: HookPayload): HookResult {
   const event = payload.hook_event_name || "";
   const toolName = payload.tool_name || "";
@@ -100,6 +165,19 @@ export function dispatch(payload: HookPayload): HookResult {
   if (!event) return { blocked: false, reason: "", contexts };
 
   logInvocation(payload, event);
+  const source = process.env.AGENT_HOOK_SOURCE || "unknown";
+  const sessionId = String(payload.session_id || "");
+  const cwd = String(payload.cwd || process.cwd());
+  const stateEvent = lifecycleEvent(source, event);
+  try {
+    if (source !== "claude" && sessionId && (stateEvent === "SessionStart" || !hasBrainSyncSessionState(source, sessionId))) recoverStaleSessions();
+    runSharedBrainSync(source, event, payload, contexts);
+    if (source !== "claude") recordBrainSyncSessionEvent(source, sessionId, cwd, stateEvent);
+  } catch (error) {
+    const reason = `Agent Memory cannot resolve this project's memory safely: ${error instanceof Error ? error.message : String(error)}. Resolve the single selected memory directory before continuing.`;
+    contexts.push(reason);
+    if (["PreToolUse", "UserPromptSubmit"].includes(event)) blocks.push(reason);
+  }
   if (event === "PreToolUse") {
     collectResult(runHook("guard", payload), blocks, contexts);
     if (["Write", "Edit", "apply_patch"].includes(toolName)) collectResult(runHook("trace_intent", payload), blocks, contexts);

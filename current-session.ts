@@ -10,8 +10,8 @@ function main(): void {
   const source = sourceIndex >= 0 ? args[sourceIndex + 1] : undefined;
   const field = fieldIndex >= 0 ? args[fieldIndex + 1] : undefined;
 
-  if (source && !["claude", "codex", "opencode", "antigravity"].includes(source)) {
-    process.stderr.write("--source must be claude, codex, opencode, or antigravity\n");
+  if (source && !["claude", "codex", "opencode", "antigravity", "cursor"].includes(source)) {
+    process.stderr.write("--source must be claude, codex, opencode, antigravity, or cursor\n");
     process.exitCode = 2;
     return;
   }

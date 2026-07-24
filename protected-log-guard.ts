@@ -15,7 +15,7 @@ function candidatePath(value: unknown, cwd: string): string | null {
 
 function protectedPath(path: string): boolean {
   if (!protectedNames.has(basename(path).toUpperCase())) return false;
-  return path.split(/[\\/]/).includes(".agent-memory");
+  return path.split(/[\\/]/).some((part) => [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"].includes(part));
 }
 
 function pathsFromPayload(payload: Record<string, unknown>, toolName: string): string[] {

@@ -9,6 +9,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
+    "agent-memory": "dist/init.js",
+    "agent-memory-heartbeat": "dist/heartbeat.js",
     "agent-log": "dist/agent-log.js",
     "trace-search": "dist/trace-search.js",
     "agent-session": "dist/current-session.js"
@@ -17,12 +19,17 @@
     ".agents/",
     "AGENTS.md",
     "dist/",
-    "protocols/",
+    "examples/",
     "README.md",
-    "settings.example.json"
+    "postinstall.mjs",
+    "settings.example.json",
+    "codex-hooks.example.json",
+    "antigravity-hooks.example.json",
+    "cursor-hooks.example.json"
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/mark-bins.mjs",
+    "postinstall": "node postinstall.mjs",
     "prepack": "npm run build"
   },
   "devDependencies": {

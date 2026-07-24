@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10,
+        "matcher": "*"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10,
+        "matcher": "*"
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10,
+        "matcher": "*"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10,
+        "matcher": "*"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10,
+        "matcher": "*"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10
+      }
+    ],
+    "stop": [
+      {
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/cursor/dispatch.js",
+        "timeout": 10
+      }
+    ]
+  }
+}

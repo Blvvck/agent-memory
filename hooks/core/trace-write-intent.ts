@@ -20,7 +20,7 @@ const patchFilePattern = /^\*\*\* (Update|Add|Delete) File: (.+?)\s*$/gm;
 function isTrackedNote(path: string): boolean {
   if (!path.endsWith(".md")) return false;
   if (path.includes("/agents/") && path.includes("/brain/") && !path.includes("/archive/")) return true;
-  if (path.endsWith("/ACTIVITY.md") && path.includes("/.agent-memory/")) return true;
+  if (/\/(?:\.agent-memory|\.claude|\.codex|\.opencode|\.agents|\.cursor)\/ACTIVITY\.md$/.test(path)) return true;
   return path.endsWith("/core/portfolio.md");
 }
 

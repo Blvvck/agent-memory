@@ -1,0 +1,56 @@
+{
+  "agent-memory": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event SessionStart",
+        "timeout": 10
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event PreToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event PostToolUse",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event PreInvocation",
+        "timeout": 10
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event PostInvocation",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ~/.agent-memory/dist/hooks/harnesses/antigravity/dispatch.js --event Stop",
+        "timeout": 10
+      }
+    ]
+  }
+}

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { projectMemoryRoot } from "./memory-paths";
 
 interface Entry {
   line: number;
@@ -78,18 +79,15 @@ function expandPath(pathString: string): string {
   const expanded = pathString.startsWith("~") ? join(homedir(), pathString.slice(1)) : pathString;
   if (expanded.startsWith("/") || /^[A-Za-z]:[\\/]/.test(expanded)) return resolve(expanded);
 
-  const agentsRoot = join(homedir(), ".agent-memory", "agents");
-  let agentDirectories: string[] = [];
-  try {
-    const { readdirSync, statSync } = require("node:fs") as typeof import("node:fs");
-    agentDirectories = readdirSync(agentsRoot).filter((name) => statSync(join(agentsRoot, name)).isDirectory()).sort();
-  } catch {
-    agentDirectories = [];
-  }
+  const agentsRoots = [join(projectMemoryRoot(process.cwd()), "agents"), join(homedir(), ".agent-memory", "agents")];
+  const agentDirectories = agentsRoots.flatMap((root) => {
+    try { return readdirSync(root).filter((name) => statSync(join(root, name)).isDirectory()).map((name) => join(root, name)); }
+    catch { return []; }
+  });
   const candidates = [
-    ...agentDirectories.map((agent) => join(agentsRoot, agent, "brain", pathString)),
-    join(homedir(), ".agent-memory", "comms", pathString),
-    join(process.cwd(), ".agent-memory", "comms", pathString),
+    ...agentDirectories.map((agent) => join(agent, "brain", pathString)),
+    join(homedir(), ".agent-memory", pathString),
+    join(projectMemoryRoot(process.cwd()), pathString),
     join(process.cwd(), pathString),
   ];
   return resolve(candidates.find((candidate) => existsSync(candidate)) ?? expanded);

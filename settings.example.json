@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ~/.agent-memory/dist/hooks/harnesses/claude-code/dispatch.js --event claude_session_start --name brain-sync --script ~/.agent-memory/dist/hooks/harnesses/claude-code/brain-sync-adapter.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
