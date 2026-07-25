@@ -1,11 +1,14 @@
-# Protocol examples
+# Optional protocol examples
 
-These examples show ways to connect agent instructions to the body and memory structure in this repository. They are optional starting points, not required Agent Memory behavior. Adapt paths, lifecycle events, and writer commands to your setup and harness.
+These procedures add optional workflows on top of the required procedures installed under `~/.agent-memory/protocols/`. They are not required for Agent Memory to function. Adapt them to the project's chosen modules and harnesses before using them.
 
 | Example | Use it for |
 |---|---|
-| [Session lifecycle](session-lifecycle.md) | Reading context at wake and recording useful state during work, before compaction, and at session end |
-| [Subagent wake](subagent-wake.md) | Passing a named agent's identity and required context into a delegated task |
-| [Memory entry and traces](memory-entry-and-traces.md) | Choosing what to record and linking related entries |
+| [Bug fix and review](bug-fix-and-review.md) | Reproducing a defect, proving the failure, and verifying its fix |
+| [File updates](file-updates.md) | Agreeing who maintains optional shared files and when they change |
+| [Project planning](project-planning.md) | Turning an idea into a feature spec, epics, stories, and verifiable acceptance criteria |
+| [Sprint lifecycle](sprint-lifecycle.md) | Planning, running, and closing a sprint when the project uses the optional work module |
+| [Standup](standup.md) | Summarizing project progress, blockers, and next steps from available records |
+| [Team coordination](team-coordination.md) | Sharing updates, handoffs, discussions, and responsibilities across agents |
 
-Each procedure should be wired to the lifecycle events your harness actually provides. If an event is unavailable, use the closest reliable checkpoint and keep the same memory contract.
+The installer does not apply these optional procedures automatically. Choose the workflows that fit the people using the project. For required memory, session, setup, and named-agent behavior, use the procedures in [`protocols/`](../../protocols/README.md).

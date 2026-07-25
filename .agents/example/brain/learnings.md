@@ -4,4 +4,4 @@
 
 ## Universal
 
-[2026-01-15T10:00:00Z] **Example lesson** — what happened, the root cause, and the fix.
+No learnings recorded yet. Add an entry after a real lesson using `agent-log`.

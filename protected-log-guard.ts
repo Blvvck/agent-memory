@@ -6,6 +6,7 @@ const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACT
 const patchPath = /^\*\*\* (?:Update|Add|Delete) File: (.+?)\s*$/gm;
 const readOnlyCommands = new Set(["cat", "head", "tail", "grep", "rg", "wc", "stat", "file", "ls", "cut", "tr", "trace-search", "pwd", "true", "false", "echo", "printf", "test", "["]);
 const neutralCommands = new Set(["cd"]);
+const readOnlyGitCommands = new Set(["blame", "branch", "cat-file", "check-ignore", "describe", "diff", "grep", "log", "ls-files", "remote", "rev-parse", "show", "status", "tag"]);
 
 function candidatePath(value: unknown, cwd: string): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
@@ -110,7 +111,13 @@ function segmentReadOnly(segment: string): boolean {
   const program = basename(args[0]);
   if (neutralCommands.has(program) || installedWriter(args[0])) return true;
   if (["node", "nodejs"].includes(program) && args.length > 1 && installedWriter(args[1])) return true;
-  if (program === "git" && args[1] === "check-ignore") return true;
+  if (program === "git" && args.length > 1) {
+    const subcommand = args[1];
+    if (subcommand === "add") return true;
+    if (readOnlyGitCommands.has(subcommand)) {
+      return !args.slice(2).some((arg) => arg === "--output" || arg === "--ext-diff" || arg === "--textconv" || arg.startsWith("--output=") || (arg.startsWith("-o") && arg.length > 2));
+    }
+  }
   if (program === "find") return !args.some((arg) => ["-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"].includes(arg));
   if (program === "sort") return !args.some((arg) => /^-[a-zA-Z]*o/.test(arg) || arg.startsWith("--output") || arg.startsWith("--compress-program"));
   if (program === "uniq") return args.filter((arg, index) => !arg.startsWith("-") || arg === "-").length <= 1;

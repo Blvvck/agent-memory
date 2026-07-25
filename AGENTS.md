@@ -14,6 +14,35 @@ Memory works as a loop:
 
 The agent improves because its next session reads what its last session wrote.
 
+## Required protocols
+
+`agent-memory init` installs the required procedures in `~/.agent-memory/protocols/`. Read the matching procedure before the task:
+
+| Task | Required procedure |
+|---|---|
+| Create or update an agent body | `~/.agent-memory/protocols/new-agent.md` |
+| Set up a project or connect a harness | `~/.agent-memory/protocols/new-project.md` |
+| Start, sync, compact, or end a session | `~/.agent-memory/protocols/session-lifecycle.md` |
+| Delegate to a named agent body | `~/.agent-memory/protocols/subagent-wake.md` |
+| Write memory, activity, or notifications | `~/.agent-memory/protocols/agent-log.md` |
+
+These protocols are part of the working system. `examples/` contains optional additions and does not replace them.
+
+## Optional workflow examples
+
+Read these only when the project has chosen the workflow. The examples are references to adapt, not required Agent Memory behavior.
+
+| Task | Optional example |
+|---|---|
+| Reproduce and review a code change | [Bug fix and review](examples/protocols/bug-fix-and-review.md) |
+| Plan a feature or structured project work | [Project planning](examples/protocols/project-planning.md) |
+| Run a sprint | [Sprint lifecycle](examples/protocols/sprint-lifecycle.md) |
+| Summarize team progress | [Standup](examples/protocols/standup.md) |
+| Agree who maintains shared planning and team files | [File updates](examples/protocols/file-updates.md) |
+| Coordinate work and hand off to another agent | [Team coordination](examples/protocols/team-coordination.md); use the required [named subagent wake protocol](protocols/subagent-wake.md) when delegating to a named agent body |
+
+See the [optional protocol index](examples/protocols/README.md) for all examples. They are included with the Agent Memory package but are not copied into a project or enabled by setup.
+
 ## Waking: what to read, in order
 
 Read these files first, in this order, and only in slices. Full reads of growing logs cost too much context, so read the newest part and trust the structure to surface what matters.

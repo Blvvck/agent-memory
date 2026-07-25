@@ -458,6 +458,12 @@ function validateTemplates(root: string): void {
     "AGENTS.md",
     "dist/agent-log.js",
     "dist/heartbeat.js",
+    "protocols/README.md",
+    "protocols/agent-log.md",
+    "protocols/session-lifecycle.md",
+    "protocols/subagent-wake.md",
+    "protocols/new-agent.md",
+    "protocols/new-project.md",
     "examples/scaffold/global",
     "examples/scaffold/project",
     ".agents/example",
@@ -538,6 +544,7 @@ async function main(): Promise<void> {
   copyManagedRuntime(join(sourceRoot, "dist"), join(memoryRoot, "dist"), globalStats);
   copyFileIfMissing(join(sourceRoot, "AGENTS.md"), join(memoryRoot, "AGENTS.md"), globalStats);
   copyTreeIfMissing(join(sourceRoot, ".agents", "example"), join(memoryRoot, ".agents", "example"), globalStats);
+  copyTreeIfMissing(join(sourceRoot, "protocols"), join(memoryRoot, "protocols"), globalStats);
   copyTreeIfMissing(join(sourceRoot, "examples"), join(memoryRoot, "examples"), globalStats);
   for (const filename of ["settings.example.json", "codex-hooks.example.json", "antigravity-hooks.example.json", "cursor-hooks.example.json"]) {
     copyFileIfMissing(join(sourceRoot, filename), join(memoryRoot, filename), globalStats);
@@ -597,6 +604,7 @@ async function main(): Promise<void> {
   }
   const projectDirectory = layoutDirectories[layout];
   process.stdout.write("\nGlobal memory lives in ~/.agent-memory. Project work stays in that project’s " + projectDirectory + "/ACTIVITY.md. Harness setup edits only the selected harness configuration; existing JSON files are backed up before hooks are merged.\n");
+  process.stdout.write(`Required procedures are installed in ${join(memoryRoot, "protocols")}; start with new-project.md for project setup and new-agent.md when adding an agent.\n`);
 }
 
 if (require.main === module) {
