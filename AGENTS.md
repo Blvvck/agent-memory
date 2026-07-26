@@ -95,6 +95,16 @@ agent-log --file .agents/example/brain/memory.md \
   --agent Example --cli claude --session-id <real-session-id> --project <project>
 ```
 
+## Global memory and project memory
+
+Global memory lives in one place: `~/.agent-memory/`. It holds the shared body — `AGENTS.md`, protocols, examples, and agent bodies — and harness files point to it rather than keeping a second copy. Claude imports it from `~/.claude/CLAUDE.md`, Codex and OpenCode link their global `AGENTS.md` files to it, and Antigravity links `~/.gemini/GEMINI.md`. Every hook reads the same root.
+
+Project memory is selected per project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. The choice is recorded in `.agent-memory-layout`, and a project keeps exactly one scaffold.
+
+The asymmetry is deliberate. Global memory is the agent's identity and must be harness-neutral, so it cannot live inside one harness's directory without making that harness primary or duplicating the body. Project memory is a workspace, and it follows the directory the project and its harness already use. A project usually has one primary harness, while a person usually runs several, so a project workspace can be colocated with a harness without splitting the shared identity.
+
+`agent-memory init` creates files but never stages, commits, or ignores them. Global files live outside the project repository. Project files, the layout marker, and harness entry files land untracked inside it. Commit them when the team should share the context, or ignore them when they are local runtime state; the tool does not choose for you.
+
 ## Project and global work logs
 
 When a project has a selected memory directory (`.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`), read its `CONTEXT.md` before changing project files and record meaningful project work in that directory's `ACTIVITY.md`. Record cross-project or global system work in `~/.agent-memory/ACTIVITY.md`. These files are distinct from an agent's `brain/memory.md`: the activity log records work in a scope, while brain memory preserves context for that agent across sessions.

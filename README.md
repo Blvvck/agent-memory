@@ -88,7 +88,17 @@ After scaffolding, complete the procedure and run the first wake. The `brain/` f
 
 The core global and project files are created by setup. `examples/scaffold/` contains optional add-ons, including project work planning (`work/SPRINT.md`, `work/BACKLOG.md`, and `work/features/`) and project lounge/leaderboard files. Choose only the modules people will maintain; no `comms/` directory or project `COMMANDS.md` is required. Required procedures live in [`protocols/`](protocols/README.md); optional procedures live in [`examples/protocols/`](examples/protocols/README.md).
 
-### 4. Hook and harness behavior
+### 4. Global memory versus project memory
+
+Global memory has one root: `~/.agent-memory/`. It holds the shared body, protocols, examples, and agent bodies. Harness files point to it rather than duplicating it: Claude imports it from `~/.claude/CLAUDE.md`, Codex and OpenCode link their global `AGENTS.md` to it, Antigravity links `~/.gemini/GEMINI.md`, and every hook reads the same root.
+
+Project memory is scoped to one project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. Setup records the choice in `.agent-memory-layout` and refuses a second scaffold in the same project. A project has one workspace, so it can follow the directory that project and its harness already use.
+
+The asymmetry is deliberate. Global memory is the agent's identity and must stay harness-neutral; placing it inside one harness's directory would either make that harness primary or require a second copy of the body. Project memory is a workspace, so it can adopt the local convention without splitting the identity.
+
+Setup creates files but does not stage, commit, or ignore them. Global files sit outside the project repository. Project files, the layout marker, and harness entry files are created inside the repository and remain untracked. Commit them when the team should share the context, or ignore them when they are local runtime state; the tool does not choose for you.
+
+### 5. Hook and harness behavior
 
 `settings.example.json`, `codex-hooks.example.json`, `antigravity-hooks.example.json`, and `cursor-hooks.example.json` show the Claude Code, Codex, Antigravity, and Cursor wiring. Cursor project hooks live in `.cursor/hooks.json`; Cursor supports `preCompact` reminders, while its session start/end hooks do not run in cloud agents. Harness adapters live under `hooks/harnesses/<harness>/` and translate lifecycle events into shared memory checks in `hooks/core/`. OpenCode uses the V2 plugin at `dist/hooks/harnesses/opencode/plugin.js`; project setup links it under `.opencode/plugins/`, while global-only setup links it under `~/.config/opencode/plugins/`. The examples invoke compiled JavaScript under `dist/`.
 
@@ -96,7 +106,7 @@ Brain sync captures prompts and completed tool calls in a per-session journal, t
 
 The shared spawn guard checks named agents in the global memory tree and in the selected project memory directory against the wake contract in `AGENTS.md`. Spawn prompts must list each required file using its actual agent-body path; when that agent has `WAKE.md`, every file path it names is required too. Follow the required [named subagent wake procedure](protocols/subagent-wake.md) when delegating to a named body. Ordinary unnamed harness subagents pass through without this body-specific check.
 
-### 5. Write through the writer
+### 6. Write through the writer
 
 `memory.md`, `learnings.md`, and `patterns.md` are protected. Never edit them directly. Every write follows the required [agent-log procedure](protocols/agent-log.md) and goes through `agent-log`:
 

@@ -1,8 +1,8 @@
 # Role-based agent body examples
 
-These complete, editable bodies demonstrate different roles and personified writing styles. Their backstories are authored persona material, not verified biographies of real people. Preserve or adapt the formative history as part of the agent's identity.
+These complete, editable bodies demonstrate different roles and personified writing styles. Their backstories are authored persona material, not verified biographies of real people. Preserve or adapt the formative history as part of the agent's identity. Where a source body had no childhood or education, the example supplies authored persona material and labels it as such in the files.
 
-Session logs are intentionally empty. `brain/memory.md`, `brain/learnings.md`, and `brain/patterns.md` should record real work only after the person adopts the body; do not seed them with invented session IDs or project history.
+The bodies carry real working experience adapted from the agents they were built from, with private names, projects, and session records removed. Each `brain/memory.md` opens with a labeled `Formative Milestones` section: authored persona history, not Agent Memory session records, with no invented timestamps or session IDs. The `Recent Sessions` section is empty on purpose, and real work should be recorded there with `agent-log` once the body is in use. The same applies to `brain/learnings.md` and `brain/patterns.md`, which hold reusable lessons and methods rather than copied session logs.
 
 Choose a body and copy its directory to a new agent location that does not already exist:
 
@@ -20,8 +20,7 @@ For a project-only body, copy it under `agents/<name>/` inside the project's sel
 | Design PM | [design-pm](design-pm/) | Product design, research, and experience quality |
 | Technical PM | [technical-pm](technical-pm/) | Technical planning and delivery coordination |
 | Frontend engineer | [frontend-engineer](frontend-engineer/) | Frontend systems and user-facing implementation |
-| Backend engineer | [product services](backend-engineer/product-services/) | APIs, data, and product services |
-| Backend engineer | [developer tools](backend-engineer/developer-tools/) | Developer tools, local runtimes, and terminal systems |
+| Backend engineer | [backend-engineer](backend-engineer/) | APIs, data, product services, and developer tools |
 | QA engineer | [qa-engineer](qa-engineer/) | Quality, verification, and security review |
 | DevOps engineer | [devops-engineer](devops-engineer/) | Infrastructure, delivery, and reliability |
 | Terminal systems engineer | [terminal-systems-engineer](terminal-systems-engineer/) | CLI, TTY, PTY, process, and rendering behavior |
