@@ -1,7 +1,13 @@
+import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
+import { runSkills, syncSkills } from "./skills";
+import { runSessions } from "./sessions";
+import { runCrons } from "./crons";
+import { backupAvailable, runBackup, snapshotScope } from "./backup";
+import { runDoctor } from "./doctor";
 
 type Harness = "claude" | "codex" | "opencode" | "antigravity" | "cursor";
 type Layout = "standard" | "claude" | "codex" | "opencode" | "antigravity" | "cursor";
@@ -17,6 +23,8 @@ interface Options {
   projectTeam: boolean;
   agent?: string;
   agentScope?: "global" | "project";
+  role?: string;
+  git?: "tracked" | "ignored" | "skip";
   harnesses: Harness[];
 }
 
@@ -139,6 +147,12 @@ function parseOptions(args: string[]): Options {
     else if (arg === "--global-team") options.globalTeam = true;
     else if (arg === "--no-global-team") options.globalTeam = false;
     else if (arg === "--agent") options.agent = args[++index];
+    else if (arg === "--role") options.role = args[++index] ?? "";
+    else if (arg === "--git") {
+      const value = String(args[++index] ?? "").trim().toLowerCase();
+      if (value !== "tracked" && value !== "ignored" && value !== "skip") throw new Error("--git must be tracked, ignored, or skip.");
+      options.git = value;
+    }
     else if (arg === "--agent-scope") {
       const scope = String(args[++index] ?? "").trim().toLowerCase();
       if (scope !== "global" && scope !== "project") throw new Error("Choose an agent scope: global or project.");
@@ -167,10 +181,19 @@ Options:
   --global-team         Add global lounge, tasks, and leaderboard files
   --no-global-team      Skip global lounge, tasks, and leaderboard files
   --agent <name>        Create a starter body for this agent
+  --role <text>         One-line role for the agent roster
+  --git <mode>          tracked, ignored, or skip (default skip)
   --agent-scope <scope> Store it globally (default) or in this project's selected memory directory
   --harness <names>     Wire claude, codex, opencode, antigravity, and/or cursor
   --yes                 Use defaults without prompts; optional modules stay off
   -h, --help            Show this guide
+
+Commands:
+  agent-memory skills [--global|--project] [--quiet]   Rebuild the skills index
+  agent-memory sessions [--list|--search words] [--harness name] [--limit N]
+  agent-memory crons <list|add|approve|pause|resume|delete|run|logs|daemon>
+  agent-memory backup <status|snapshot|list|restore|diff|prune>
+  agent-memory doctor
 `);
 }
 
@@ -384,7 +407,7 @@ function createProjectEntry(projectRoot: string, layout: Layout, projectMemoryNa
   const body = layout === "claude"
     ? "@~/.agent-memory/AGENTS.md\n" + (existsSync(join(projectRoot, "AGENTS.md")) ? "@AGENTS.md\n" : "") + "\n"
     : "# Agent Memory project entry\n\nRead ~/.agent-memory/AGENTS.md for the shared wake, memory, and logging rules.\n\n";
-  const projectBody = body + "## This project\n\nRead " + projectMemoryName + "/CONTEXT.md before project work and recent entries in " + projectMemoryName + "/ACTIVITY.md. Record meaningful project work in that activity log.\n";
+  const projectBody = body + "## This project\n\nRead " + projectMemoryName + "/CONTEXT.md before project work and recent entries in " + projectMemoryName + "/ACTIVITY.md. Record meaningful project work in that activity log. Installed modules and their procedures are listed in " + projectMemoryName + "/MODULES.md.\n";
   writeFileSync(path, projectBody, "utf8");
   return `Created project instructions: ${path}`;
 }
@@ -395,6 +418,178 @@ function writeProjectLayout(projectRoot: string, projectMemoryName: string): str
   if (existsSync(path)) copyFileSync(path, backupPath(path));
   writeFileSync(path, `${projectMemoryName}\n`, "utf8");
   return `Selected project memory directory: ${projectMemoryName}`;
+}
+
+const ROSTER_START = "<!-- agent-memory:agents:start -->";
+const ROSTER_END = "<!-- agent-memory:agents:end -->";
+
+function agentRosterIntro(projectScoped: boolean): string {
+  const lines = [
+    "## Named agents",
+    "",
+    "Every named agent available in this scope is listed here. `agent-memory init --agent <name>` adds or updates the row automatically. Keep the table current when a body is renamed, removed, or repurposed.",
+    "",
+  ];
+  if (!projectScoped) lines.push("Project-scoped agents are listed in `agents/README.md` inside the project's memory directory.", "");
+  return lines.join("\n");
+}
+
+function agentRosterTable(): string {
+  return [ROSTER_START, "| Agent | Role | Scope | Body |", "|-------|------|-------|------|", ROSTER_END].join("\n");
+}
+
+function writeTextFile(path: string, content: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  if (existsSync(path)) copyFileSync(path, backupPath(path));
+  const temporary = `${path}.agent-memory-${process.pid}.tmp`;
+  writeFileSync(temporary, content, "utf8");
+  renameSync(temporary, path);
+}
+
+function ensureAgentRoster(path: string): string {
+  if (!existsSync(path)) return "";
+  const content = readFileSync(path, "utf8");
+  if (content.includes(ROSTER_START)) return "";
+  writeTextFile(path, `${content.replace(/\s*$/, "")}\n\n${agentRosterIntro(false)}${agentRosterTable()}\n`);
+  return `Added the named-agent roster to ${path}`;
+}
+
+function ensureSkillsSection(path: string): string {
+  if (!existsSync(path)) return "";
+  const content = readFileSync(path, "utf8");
+  if (content.includes("\n## Skills\n")) return "";
+  const section = [
+    "## Skills",
+    "",
+    "Skills are reusable procedures written as Markdown. Shared skills live in `~/.agent-memory/skills/`; project skills live in `skills/` inside the project's memory directory. Each skill is `<name>.md` or `<name>/SKILL.md`, with optional `name` and `description` frontmatter.",
+    "",
+    "Each scope keeps its catalog in `skills/README.md`. Run `agent-memory skills` after adding, renaming, or removing a skill; setup also rebuilds it. Read the catalog before specialized work and open only the skill you need.",
+    "",
+    "To reuse an existing harness skill directory, link it into `~/.agent-memory/skills/` once.",
+    "",
+  ].join("\n");
+  writeTextFile(path, `${content.replace(/\s*$/, "")}\n\n${section}`);
+  return `Added the skills section to ${path}`;
+}
+
+const MODULES_START = "<!-- agent-memory:modules:start -->";
+const MODULES_END = "<!-- agent-memory:modules:end -->";
+
+function moduleRows(scopeRoot: string, projectScoped: boolean): string[] {
+  const rows: string[] = [];
+  if (projectScoped) {
+    rows.push("| Core | `CONTEXT.md`, `ACTIVITY.md`, `IDEAS.md`, `skills/README.md` | `AGENTS.md`, `protocols/agent-log.md` |");
+    if (existsSync(join(scopeRoot, "work", "SPRINT.md"))) {
+      rows.push("| Work planning | `work/SPRINT.md`, `work/BACKLOG.md`, `work/features/` | `examples/protocols/project-planning.md`, `examples/protocols/sprint-lifecycle.md` |");
+    }
+    if (existsSync(join(scopeRoot, "LOUNGE.md")) || existsSync(join(scopeRoot, "LEADERBOARD.md"))) {
+      rows.push("| Team | `LOUNGE.md`, `LEADERBOARD.md` | `examples/protocols/team-coordination.md`, `examples/protocols/standup.md` |");
+    }
+  } else {
+    rows.push("| Core | `ACTIVITY.md`, `NOTIFICATIONS.md`, `skills/README.md` | `AGENTS.md`, `protocols/agent-log.md` |");
+    if (existsSync(join(scopeRoot, "LOUNGE.md")) || existsSync(join(scopeRoot, "TASKS.md"))) {
+      rows.push("| Team | `LOUNGE.md`, `TASKS.md`, `LEADERBOARD.md` | `examples/protocols/team-coordination.md`, `examples/protocols/standup.md`, `examples/protocols/file-updates.md` |");
+    }
+  }
+  return rows;
+}
+
+function moduleBlock(rows: string[]): string {
+  return [MODULES_START, "| Module | Files | Procedure |", "|--------|-------|-----------|", ...rows, MODULES_END].join("\n");
+}
+
+function modulesIntro(projectScoped: boolean): string {
+  return projectScoped
+    ? "This project's memory directory contains the modules listed below. Run `agent-memory init --project --work --team` to add an optional module; setup adds missing files and leaves existing ones alone."
+    : "This scope contains the modules listed below. Run `agent-memory init --global-team` to add the optional team files; setup adds missing files and leaves existing ones alone.";
+}
+
+function updateModules(content: string, rows: string[], projectScoped: boolean): string {
+  const block = moduleBlock(rows);
+  if (content.includes(MODULES_START)) {
+    const start = content.indexOf(MODULES_START);
+    const end = content.indexOf(MODULES_END);
+    return content.slice(0, start) + block + content.slice(end + MODULES_END.length);
+  }
+  const intro = modulesIntro(projectScoped);
+  if (!content.trim()) return `# Installed modules\n\n${intro}\n\n${block}\n`;
+  const heading = projectScoped ? "## Modules" : "## Installed modules";
+  return `${content.replace(/\s*$/, "")}\n\n${heading}\n\n${intro}\n\n${block}\n`;
+}
+
+function writeIfChanged(path: string, content: string): void {
+  if (existsSync(path) && readFileSync(path, "utf8") === content) return;
+  writeTextFile(path, content);
+}
+
+function gitRootFor(path: string): string | null {
+  if (!pathExists(path)) return null;
+  const result = spawnSync("git", ["-C", path, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
+  if (result.status !== 0 || !result.stdout.trim()) return null;
+  return result.stdout.trim();
+}
+
+function gitTrack(paths: string[], root: string): string {
+  const entries = [...new Set(paths.filter((path) => existsSync(path) && !path.includes(".agent-memory-backup-")).map((path) => relative(root, path)).filter((entry) => entry && !entry.startsWith("..")))];
+  if (!entries.length) return "";
+  const result = spawnSync("git", ["-C", root, "add", "--", ...entries, ":(exclude,glob)**/*.agent-memory-backup-*", ":(exclude,glob)**/backup/**"], { encoding: "utf8" });
+  if (result.status !== 0) return `Could not stage memory files: ${result.stderr.trim()}`;
+  return `Staged ${entries.length} memory path${entries.length === 1 ? "" : "s"} in ${root}`;
+}
+
+function gitIgnore(entries: string[], root: string): string {
+  const file = join(root, ".gitignore");
+  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const lines = current.split("\n").map((line) => line.trim());
+  const missing = [...new Set(entries.filter((entry) => entry && !entry.startsWith("..") && !lines.includes(entry)))];
+  if (!missing.length) return `Memory paths already ignored in ${file}`;
+  const next = `${current.replace(/\s*$/, "")}${current.trim() ? "\n" : ""}${missing.join("\n")}\n`;
+  writeFileSync(file, next, "utf8");
+  return `Added ${missing.length} ignore entr${missing.length === 1 ? "y" : "ies"} to ${file}`;
+}
+
+function applyGitChoice(git: Options["git"], memoryRoot: string, projectRoot: string | null, projectTarget: string | null, extraPaths: string[]): void {
+  if (!git || git === "skip") return;
+  const scopes = new Map<string, { paths: string[]; entries: string[] }>();
+  const globalRoot = gitRootFor(memoryRoot);
+  if (globalRoot) {
+    scopes.set(globalRoot, {
+      paths: git === "tracked" ? [memoryRoot] : [],
+      entries: git === "ignored" ? [`${relative(globalRoot, memoryRoot)}/`, "*.agent-memory-backup-*"] : [],
+    });
+  }
+  if (projectRoot && projectTarget) {
+    const root = gitRootFor(projectRoot);
+    if (root) {
+      const existing = scopes.get(root) ?? { paths: [], entries: [] };
+      if (git === "tracked") existing.paths.push(projectTarget, join(projectRoot, ".agent-memory-layout"), ...extraPaths);
+      else existing.entries.push(`${relative(root, projectTarget)}/`, ".agent-memory-layout", "*.agent-memory-backup-*");
+      scopes.set(root, existing);
+    }
+  }
+  for (const [root, scope] of scopes) {
+    process.stdout.write(`  ${git === "tracked" ? gitTrack(scope.paths, root) : gitIgnore(scope.entries, root)}\n`);
+  }
+}
+
+function upsertAgentRoster(path: string, name: string, role: string, scope: string, body: string, projectScoped: boolean): string {
+  let content = existsSync(path) ? readFileSync(path, "utf8") : "";
+  if (!content) content = `# Named agents (project)\n\n${agentRosterIntro(true)}${agentRosterTable()}\n`;
+  else if (!content.includes(ROSTER_START)) content = `${content.replace(/\s*$/, "")}\n\n${agentRosterIntro(projectScoped)}${agentRosterTable()}\n`;
+
+  const start = content.indexOf(ROSTER_START);
+  const end = content.indexOf(ROSTER_END);
+  const block = content.slice(start, end + ROSTER_END.length);
+  const rows = block.split("\n").filter((line) => line.startsWith("|") && !/^\|\s*(Agent|-)/.test(line));
+  const safeRole = role.replace(/\|/g, "\\|");
+  const row = `| ${name} | ${safeRole} | ${scope} | \`${body}\` |`;
+  const existing = rows.findIndex((line) => line.split("|")[1]?.trim() === name);
+  if (existing >= 0) rows[existing] = row;
+  else rows.push(row);
+
+  const nextBlock = [ROSTER_START, "| Agent | Role | Scope | Body |", "|-------|------|-------|------|", ...rows, ROSTER_END].join("\n");
+  writeTextFile(path, content.slice(0, start) + nextBlock + content.slice(end + ROSTER_END.length));
+  return `Registered ${name} in the agent roster: ${path}`;
 }
 
 function installOpenCodePlugin(memoryRoot: string, pluginDirectory?: string): string {
@@ -473,6 +668,26 @@ function validateTemplates(root: string): void {
 }
 
 async function main(): Promise<void> {
+  if (process.argv[2] === "skills") {
+    runSkills(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === "sessions") {
+    runSessions(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === "crons") {
+    runCrons(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === "backup") {
+    runBackup(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === "doctor") {
+    runDoctor(process.argv.slice(3));
+    return;
+  }
   const options = parseOptions(process.argv.slice(2));
   const sourceRoot = packageRoot();
   validateTemplates(sourceRoot);
@@ -484,6 +699,7 @@ async function main(): Promise<void> {
   let projectWork = options.projectWork;
   let projectTeam = options.projectTeam;
   let agent = options.agent;
+  let agentRole = options.role;
   let agentScope = options.agentScope ?? "global";
   let harnesses = options.harnesses;
   let layout: Layout = options.layout ?? "standard";
@@ -524,6 +740,9 @@ async function main(): Promise<void> {
       if (agent && projectRoot && !options.agentScope) {
         agentScope = await askYesNo("Keep this agent shared globally? Choose no to scope it to this project.", true) ? "global" : "project";
       }
+      if (agent && !agentRole) {
+        agentRole = await ask("Role in one line (optional): ", "Starter body; define the role in work.md");
+      }
     }
     if (!projectRoot && !harnesses.length) harnesses = await interactiveHarnesses();
   } else if (options.yes && !projectRoot && options.forceProject) {
@@ -551,6 +770,14 @@ async function main(): Promise<void> {
   }
   copyGlobalScaffold(join(sourceRoot, "examples", "scaffold", "global"), memoryRoot, globalTeam, globalStats);
   recordCopyResult("Global memory", globalStats);
+  const rosterSectionResult = ensureAgentRoster(join(memoryRoot, "AGENTS.md"));
+  if (rosterSectionResult) process.stdout.write(`  ${rosterSectionResult}\n`);
+  const skillsSectionResult = ensureSkillsSection(join(memoryRoot, "AGENTS.md"));
+  if (skillsSectionResult) process.stdout.write(`  ${skillsSectionResult}\n`);
+  const globalAgentsPath = join(memoryRoot, "AGENTS.md");
+  if (existsSync(globalAgentsPath)) writeIfChanged(globalAgentsPath, updateModules(readFileSync(globalAgentsPath, "utf8"), moduleRows(memoryRoot, false), false));
+  const globalSkills = syncSkills(memoryRoot, true);
+  process.stdout.write(`  Skills index: ${globalSkills.count} in ${globalSkills.index}\n`);
 
   if (agent) {
     const agentRoot = agentScope === "project"
@@ -563,20 +790,55 @@ async function main(): Promise<void> {
       copyTreeIfMissing(join(sourceRoot, ".agents", "example"), agentTarget, agentStats);
       recordCopyResult(`Starter body ${agent}`, agentStats);
     }
+    const rosterPath = agentScope === "project"
+      ? join(projectRoot!, layoutDirectories[layout], "agents", "README.md")
+      : join(memoryRoot, "AGENTS.md");
+    const rosterRole = (agentRole ?? "").trim() || "Starter body; define the role in work.md";
+    const rosterScope = agentScope === "project" ? "project" : "shared";
+    process.stdout.write(`  ${upsertAgentRoster(rosterPath, agent, rosterRole, rosterScope, `agents/${agent}/`, agentScope === "project")}\n`);
   }
+
+  let projectTarget: string | null = null;
+  const createdEntries: string[] = [];
 
   if (projectRoot) {
     const projectMemoryName = layoutDirectories[layout];
-    const projectTarget = join(projectRoot, projectMemoryName);
+    projectTarget = join(projectRoot, projectMemoryName);
     const projectStats: CopyStats = { created: 0, updated: 0, kept: 0, conflicts: [] };
     copyTreeIfMissing(join(sourceRoot, "examples", "scaffold", "project"), projectTarget, projectStats);
-    if (projectWork) copyTreeIfMissing(join(sourceRoot, "examples", "scaffold", "project-work"), projectTarget, projectStats);
+    if (projectWork) copyTreeIfMissing(join(sourceRoot, "examples", "scaffold", "project-work"), join(projectTarget, "work"), projectStats);
     if (projectTeam) copyTreeIfMissing(join(sourceRoot, "examples", "scaffold", "project-team"), projectTarget, projectStats);
     recordCopyResult(`Project memory (${projectRoot})`, projectStats);
+    const projectSkills = syncSkills(projectTarget, true);
+    process.stdout.write(`  Skills index: ${projectSkills.count} in ${projectSkills.index}\n`);
+    const modulesPath = join(projectTarget, "MODULES.md");
+    const modulesContent = existsSync(modulesPath) ? readFileSync(modulesPath, "utf8") : "";
+    writeIfChanged(modulesPath, updateModules(modulesContent, moduleRows(projectTarget, true), true));
     process.stdout.write(`  ${writeProjectLayout(projectRoot, projectMemoryName)}\n`);
-    if ((harnesses.includes("codex") || harnesses.includes("opencode") || harnesses.includes("antigravity") || harnesses.includes("cursor")) && !["standard", "codex", "opencode", "cursor"].includes(layout)) process.stdout.write(`  ${createProjectEntry(projectRoot, "standard", projectMemoryName)}\n`);
-    process.stdout.write(`  ${createProjectEntry(projectRoot, layout, projectMemoryName)}\n`);
-    if (harnesses.includes("claude") && layout !== "claude") process.stdout.write(`  ${createProjectEntry(projectRoot, "claude", projectMemoryName)}\n`);
+    const recordEntry = (entryLayout: Layout): string => {
+      const path = join(projectRoot, layoutEntries[entryLayout]);
+      const existed = existsSync(path);
+      const result = createProjectEntry(projectRoot, entryLayout, projectMemoryName);
+      if (!existed && existsSync(path)) createdEntries.push(path);
+      return result;
+    };
+    if ((harnesses.includes("codex") || harnesses.includes("opencode") || harnesses.includes("antigravity") || harnesses.includes("cursor")) && !["standard", "codex", "opencode", "cursor"].includes(layout)) process.stdout.write(`  ${recordEntry("standard")}\n`);
+    process.stdout.write(`  ${recordEntry(layout)}\n`);
+    if (harnesses.includes("claude") && layout !== "claude") process.stdout.write(`  ${recordEntry("claude")}\n`);
+  }
+
+  if (options.git === undefined && !options.yes && process.stdin.isTTY && (projectRoot || gitRootFor(memoryRoot))) {
+    const answer = (await ask("Track memory in git? [t]racked / [i]gnored / [s]kip (skip): ", "skip")).toLowerCase();
+    options.git = answer.startsWith("t") ? "tracked" : answer.startsWith("i") ? "ignored" : "skip";
+  }
+  applyGitChoice(options.git, memoryRoot, projectRoot, projectTarget, createdEntries);
+
+  if (!backupAvailable()) {
+    process.stdout.write("  Backups: restic not installed; version history is disabled until it is available\n");
+  } else {
+    const globalSnapshot = snapshotScope("global", true);
+    const projectSnapshot = projectRoot ? snapshotScope("project", true) : false;
+    process.stdout.write(`  Backups: ${globalSnapshot || projectSnapshot ? "snapshot created" : "git is handling this scope"}\n`);
   }
 
   const harnessResults = harnesses.flatMap((harness) => wireHarness(harness, memoryRoot, projectRoot ?? undefined));

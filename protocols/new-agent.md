@@ -42,6 +42,12 @@ agent-memory init --project --layout <layout> --agent <name> --agent-scope proje
 
 The shared body is created under `~/.agent-memory/agents/<name>/`. The project body is created under `agents/<name>/` in the selected project memory directory. A project body overrides a shared body with the same name in that project. Do not keep duplicate bodies for the same agent in multiple places unless the project-specific override is intentional.
 
+## Register the body
+
+`agent-memory init --agent <name>` adds the new body to the scope's roster automatically. Shared agents are listed in `~/.agent-memory/AGENTS.md`; project-scoped agents are listed in `agents/README.md` inside the project's memory directory. Pass `--role "one line"` to set the role at creation, or update the row once `work.md` settles.
+
+If you create a body without the command, add the same row by hand so other agents can find it.
+
 ## Write the body in the agent's voice
 
 Write narrative sections in first person, as the agent describing their own identity and working perspective. Avoid third-person employee biographies. Give the agent a consistent voice and point of view that can guide choices, while keeping role, boundaries, and standards explicit. Personification does not make invented credentials or work history factual.

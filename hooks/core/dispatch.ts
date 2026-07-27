@@ -2,9 +2,13 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { appendEvent, updateCurrentSession } from "../../common";
+import { projectMemoryRoot } from "../../memory-paths";
+import { syncSkills } from "../../skills";
+import { snapshotOnLifecycle } from "../../backup";
 import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
 
 interface HookPayload extends Record<string, unknown> {
@@ -157,6 +161,26 @@ function lifecycleEvent(source: string, event: string): string {
   return source === "antigravity" && event === "PreInvocation" ? "SessionStart" : source === "antigravity" && event === "PostInvocation" ? "PostToolUse" : event;
 }
 
+function syncSkillsOnStart(cwd: string): void {
+  try {
+    const globalRoot = join(homedir(), ".agent-memory");
+    const roots = new Set<string>();
+    if (existsSync(globalRoot)) roots.add(globalRoot);
+    try {
+      const projectRoot = projectMemoryRoot(cwd);
+      if (resolve(projectRoot) !== resolve(globalRoot) && existsSync(projectRoot)) roots.add(projectRoot);
+    } catch {
+      return;
+    }
+    for (const root of roots) {
+      try { syncSkills(root, true); }
+      catch { continue; }
+    }
+  } catch {
+    return;
+  }
+}
+
 export function dispatch(payload: HookPayload): HookResult {
   const event = payload.hook_event_name || "";
   const toolName = payload.tool_name || "";
@@ -169,6 +193,7 @@ export function dispatch(payload: HookPayload): HookResult {
   const sessionId = String(payload.session_id || "");
   const cwd = String(payload.cwd || process.cwd());
   const stateEvent = lifecycleEvent(source, event);
+  const firstAntigravityTurn = source === "antigravity" && event === "PreInvocation" && (!sessionId || !hasBrainSyncSessionState(source, sessionId));
   try {
     if (source !== "claude" && sessionId && (stateEvent === "SessionStart" || !hasBrainSyncSessionState(source, sessionId))) recoverStaleSessions();
     runSharedBrainSync(source, event, payload, contexts);
@@ -177,6 +202,11 @@ export function dispatch(payload: HookPayload): HookResult {
     const reason = `Agent Memory cannot resolve this project's memory safely: ${error instanceof Error ? error.message : String(error)}. Resolve the single selected memory directory before continuing.`;
     contexts.push(reason);
     if (["PreToolUse", "UserPromptSubmit"].includes(event)) blocks.push(reason);
+  }
+  if (event === "SessionStart" || firstAntigravityTurn) syncSkillsOnStart(cwd);
+  if (event === "SessionEnd" || event === "PreCompact") {
+    try { snapshotOnLifecycle(); }
+    catch { /* backups fail open */ }
   }
   if (event === "PreToolUse") {
     collectResult(runHook("guard", payload), blocks, contexts);

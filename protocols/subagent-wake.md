@@ -19,6 +19,7 @@ The shared spawn guard enforces these reads when it can resolve a registered nam
 2. Read each required body file and every additional file named by `WAKE.md` before responding with work or taking action.
 3. If a required file is missing or inaccessible, report it and do not claim to have read it.
 4. Follow the same memory-writing and session-end procedure as a directly started agent.
+5. Record the result and next step before finishing. Work that is not recorded is lost.
 
 ## Spawn prompt shape
 
