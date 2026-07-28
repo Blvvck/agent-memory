@@ -38,7 +38,7 @@ function check(condition, message) {
 
 function findNamed(root, name) {
   const stack = [root];
-  for (let depth = 0; depth < 8 && stack.length; depth++) {
+  for (let depth = 0; depth < 16 && stack.length; depth++) {
     const next = [];
     for (const directory of stack) {
       let entries;
