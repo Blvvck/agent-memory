@@ -83,11 +83,24 @@ function resticVersion(): string {
   return result.status === 0 ? result.stdout.split("\n")[0].trim() : "";
 }
 
+function tightenPassword(path: string): void {
+  if (process.platform !== "win32") return;
+  const user = process.env.USERNAME;
+  if (!user) return;
+  try {
+    spawnSync("icacls", [path, "/inheritance:r", "/grant:r", `${user}:F`], { encoding: "utf8" });
+  } catch { /* best effort */ }
+}
+
 function ensurePassword(config: BackupConfig): void {
-  if (pathExists(config.passwordFile)) return;
+  if (pathExists(config.passwordFile)) {
+    tightenPassword(config.passwordFile);
+    return;
+  }
   mkdirSync(resolve(config.passwordFile, ".."), { recursive: true });
   writeFileSync(config.passwordFile, `${randomBytes(32).toString("base64")}\n`, { encoding: "utf8", mode: 0o600 });
   try { chmodSync(config.passwordFile, 0o600); } catch { /* Windows ACLs differ */ }
+  tightenPassword(config.passwordFile);
 }
 
 function runRestic(args: string[], timeout = 120_000): ResticResult {

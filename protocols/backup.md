@@ -37,7 +37,7 @@ By default a restore goes to a temporary directory and prints the restored path.
 
 ## Password and recovery
 
-The password is generated once, stored at `~/.agent-memory/backup/password` with owner-only permissions, and passed to restic automatically. It is never printed and never committed.
+The password is generated once, stored at `~/.agent-memory/backup/password` with owner-only permissions, and passed to restic automatically. It is never printed and never committed. On Windows the file ACL is restricted to the current user with `icacls`.
 
 Without that file, the snapshots cannot be read. Copy it to a safe place, and include it in any off-machine backup of the memory directory.
 

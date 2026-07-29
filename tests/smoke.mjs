@@ -67,6 +67,29 @@ try {
   check(doctorLine("restic").trimStart().startsWith("ok"), "restic is not available");
   if (process.platform !== "win32") check(doctorLine("symlinks").trimStart().startsWith("ok"), "symlinks check failed");
 
+  run(["--global-only", "--harness", "claude", "--yes"]);
+  check(existsSync(join(home, ".claude", "CLAUDE.md")), "Claude import file missing");
+  check(readFileSync(join(home, ".claude", "CLAUDE.md"), "utf8").includes("AGENTS.md"), "Claude import does not reference AGENTS.md");
+  run(["--global-only", "--harness", "codex", "--yes"]);
+
+  if (process.platform === "win32") {
+    const bin = join(home, "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "fake-claude.cmd"), "@echo off\r\necho fake-claude %*\r\n", "utf8");
+    writeFileSync(join(home, ".agent-memory", "scheduler.json"), JSON.stringify({
+      runners: { claude: ["cmd", "/d", "/s", "/c", "fake-claude.cmd", "{prompt}"] },
+    }, null, 2), "utf8");
+    env.PATH = `${bin};${env.PATH}`;
+    const at = new Date(Date.now() + 3_600_000).toISOString();
+    run(["crons", "add", "--agent", "winrunner", "--at", at, "--note", "win shim", "--runner", "claude"]);
+    const winCron = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "winrunner");
+    check(Boolean(winCron), "Windows shim cron not listed");
+    const winOutput = run(["crons", "run", winCron.id]);
+    check(winOutput.includes("fake-claude"), "Windows .cmd runner override did not execute");
+    const passwordAcl = spawnSync("icacls", [join(home, ".agent-memory", "backup", "password")], { encoding: "utf8" });
+    check(!/BUILTIN\\Users:\(R\)|Everyone:\(R\)/.test(passwordAcl.stdout ?? ""), "backup password ACL is too broad");
+  }
+
   const at = new Date(Date.now() + 3_600_000).toISOString();
   run(["crons", "add", "--agent", "smoke", "--at", at, "--note", "smoke run", "--exec", "node", "--arg", "-e", "--arg", "console.log('cron-ok')"]);
   const crons = JSON.parse(run(["crons", "list", "--json"])).filter((cron) => cron.agent === "smoke");
