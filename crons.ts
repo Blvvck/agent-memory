@@ -451,7 +451,10 @@ function runnerCommand(cron: Cron): string[] {
 
 async function execute(cron: Cron): Promise<void> {
   const startedAt = nowIso();
-  const [executable, ...args] = runnerCommand(cron);
+  const [rawExecutable, ...args] = runnerCommand(cron);
+  const executable = process.platform === "win32" && /^cmd(\.exe)?$/i.test(rawExecutable)
+    ? (process.env.ComSpec || "cmd.exe")
+    : rawExecutable;
   const cwd = cron.cwd && pathExists(cron.cwd) ? cron.cwd : process.cwd();
   const result = await new Promise<{ code: number | null; output: string }>((resolvePromise) => {
     const hint = process.platform === "win32"
