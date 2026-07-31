@@ -449,12 +449,25 @@ function runnerCommand(cron: Cron): string[] {
   return hasToken ? parts : [...parts, prompt];
 }
 
+function resolveWindowsCommand(command: string[]): string[] {
+  const [executable, ...args] = command;
+  if (process.platform !== "win32") return command;
+  const comspec = process.env.ComSpec || "cmd.exe";
+  if (/^cmd(\.exe)?$/i.test(executable)) return [comspec, ...args];
+  if (/^node(\.exe)?$/i.test(executable)) return [process.execPath, ...args];
+  let resolved = executable;
+  if (!/[\\/]/.test(executable) && !/\.(exe|cmd|bat|com)$/i.test(executable)) {
+    const found = spawnSync("where", [executable], { encoding: "utf8" });
+    const first = found.status === 0 ? (found.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) : "";
+    if (first) resolved = first;
+  }
+  if (/\.(cmd|bat)$/i.test(resolved)) return [comspec, "/d", "/s", "/c", resolved, ...args];
+  return [resolved, ...args];
+}
+
 async function execute(cron: Cron): Promise<void> {
   const startedAt = nowIso();
-  const [rawExecutable, ...args] = runnerCommand(cron);
-  const executable = process.platform === "win32" && /^cmd(\.exe)?$/i.test(rawExecutable)
-    ? (process.env.ComSpec || "cmd.exe")
-    : rawExecutable;
+  const [executable, ...args] = resolveWindowsCommand(runnerCommand(cron));
   const cwd = cron.cwd && pathExists(cron.cwd) ? cron.cwd : process.cwd();
   const result = await new Promise<{ code: number | null; output: string }>((resolvePromise) => {
     const hint = process.platform === "win32"

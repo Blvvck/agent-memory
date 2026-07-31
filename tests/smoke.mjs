@@ -77,7 +77,7 @@ try {
     mkdirSync(bin, { recursive: true });
     writeFileSync(join(bin, "fake-claude.cmd"), "@echo off\r\necho fake-claude %*\r\n", "utf8");
     writeFileSync(join(home, ".agent-memory", "scheduler.json"), JSON.stringify({
-      runners: { claude: ["cmd", "/d", "/s", "/c", "fake-claude.cmd", "{prompt}"] },
+      runners: { claude: ["fake-claude.cmd", "{prompt}"] },
     }, null, 2), "utf8");
     env.PATH = `${bin};${env.PATH}`;
     const at = new Date(Date.now() + 3_600_000).toISOString();
