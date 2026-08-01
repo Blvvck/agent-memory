@@ -18,6 +18,7 @@ const env = {
   CODEX_HOME: join(home, ".codex"),
   CLAUDE_CONFIG_DIR: join(home, ".claude"),
 };
+if (!env.PATH && env.Path) env.PATH = env.Path;
 
 function run(args, options = {}) {
   const result = spawnSync(process.execPath, [join(repo, "dist", "init.js"), ...args], {
@@ -79,7 +80,8 @@ try {
     writeFileSync(join(home, ".agent-memory", "scheduler.json"), JSON.stringify({
       runners: { claude: ["fake-claude.cmd", "{prompt}"] },
     }, null, 2), "utf8");
-    env.PATH = `${bin};${env.PATH}`;
+    env.PATH = `${bin};${env.PATH ?? ""}`;
+    env.Path = env.PATH;
     const at = new Date(Date.now() + 3_600_000).toISOString();
     run(["crons", "add", "--agent", "winrunner", "--at", at, "--note", "win shim", "--runner", "claude"]);
     const winCron = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "winrunner");
