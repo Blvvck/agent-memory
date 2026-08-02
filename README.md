@@ -107,7 +107,9 @@ Runners: `claude`, `codex`, `opencode`, `antigravity`, and `cursor`. Override an
 
 ## Versions
 
-When restic is installed and the memory is not using git, setup takes a snapshot automatically, then again at session end and before compaction. No password prompt appears; the key is generated under `~/.agent-memory/backup/`.
+When restic is installed and a scope is not tracked in git, Agent Memory versions it automatically. That covers the global files under `~/.agent-memory/`, the project memory directory, and agent bodies inside either scope. Setup takes the first snapshot; session end and pre-compaction take another.
+
+A git-tracked scope keeps git as its history and is skipped. Snapshots deduplicate, and retention keeps the last 10 plus daily, weekly, and monthly. No password prompt appears; the key is generated under `~/.agent-memory/backup/`.
 
 ```bash
 agent-memory backup list
