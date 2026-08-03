@@ -192,9 +192,9 @@ Run `agent-memory crons daemon` under a process supervisor for unattended execut
 
 ## Versions and restores
 
-When a scope is not under git, Agent Memory snapshots it at setup, at session end, and before compaction. The password is generated and stored under `~/.agent-memory/backup`; never print, commit, or delete it.
+When a scope is not tracked in git, Agent Memory snapshots it automatically. That covers the global files under `~/.agent-memory/`, the project memory directory, and agent bodies inside either scope. Snapshots happen at setup, at session end, and before compaction. A git-tracked scope keeps git as its history and is skipped.
 
-Use `agent-memory backup list` to see versions. Restore to a temporary directory with `agent-memory backup restore <id> --to <path>` or `--latest`, inspect it, and ask a person before using `--in-place`. `backup rollback --before <ISO>` and `backup fast-forward` are aliases for the same restore operation.
+The password is generated and stored under `~/.agent-memory/backup`; never print, commit, or delete it. Use `agent-memory backup list` to see versions. Restore to a temporary directory with `agent-memory backup restore <id> --to <path>` or `--latest`, inspect it, and ask a person before using `--in-place`. `backup rollback --before <ISO>` and `backup fast-forward` are aliases for the same restore operation.
 
 ## What "recursive self-improvement" means here
 

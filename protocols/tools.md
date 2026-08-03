@@ -158,7 +158,7 @@ agent-memory backup diff <id> <id>
 agent-memory backup prune
 ```
 
-Snapshots are automatic at setup, session end, and before compaction when restic is available and git is not the chosen version control. The password and repository live under `~/.agent-memory/backup/` and are handled automatically. Restore to a temporary directory first; `--in-place --yes` merges after taking a pre-restore snapshot. See `backup.md`.
+Snapshots are automatic at setup, session end, and before compaction when restic is available and the scope is not git-tracked. They cover global files, project memory, and agent bodies. The password and repository live under `~/.agent-memory/backup/` and are handled automatically. Restore to a temporary directory first; `--in-place --yes` merges after taking a pre-restore snapshot. See `backup.md`.
 
 ## Rules
 
