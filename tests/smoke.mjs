@@ -37,6 +37,16 @@ function check(condition, message) {
   if (!condition) throw new Error(`check failed: ${message}`);
 }
 
+function runFailure(args, options = {}) {
+  const result = spawnSync(process.execPath, [join(repo, "dist", "init.js"), ...args], {
+    cwd: options.cwd ?? project,
+    env,
+    encoding: "utf8",
+    timeout: options.timeout ?? 120_000,
+  });
+  return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+}
+
 function findNamed(root, name) {
   const stack = [root];
   for (let depth = 0; depth < 16 && stack.length; depth++) {
@@ -88,6 +98,12 @@ try {
     check(Boolean(winCron), "Windows shim cron not listed");
     const winOutput = run(["crons", "run", winCron.id]);
     check(winOutput.includes("fake-claude"), "Windows .cmd runner override did not execute");
+    const trapAt = new Date(Date.now() + 3_600_000).toISOString();
+    run(["crons", "add", "--agent", "wintrap", "--at", trapAt, "--note", "safe & echo HACKED", "--runner", "claude"]);
+    const trap = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "wintrap");
+    const trapAttempt = runFailure(["crons", "run", trap.id]);
+    check(trapAttempt.status !== 0, "Windows .cmd runner accepted shell metacharacters");
+    check(!trapAttempt.stdout.includes("HACKED"), "Windows .cmd runner executed an injected command");
     const passwordAcl = spawnSync("icacls", [join(home, ".agent-memory", "backup", "password")], { encoding: "utf8" });
     check(!/BUILTIN\\Users:\(R\)|Everyone:\(R\)/.test(passwordAcl.stdout ?? ""), "backup password ACL is too broad");
   }
@@ -98,6 +114,17 @@ try {
   check(crons.length === 1, "cron not listed");
   const cronOutput = run(["crons", "run", crons[0].id]);
   check(cronOutput.includes("cron-ok"), "cron command did not execute");
+
+  const pendingAt = new Date(Date.now() + 3_600_000).toISOString();
+  run(["crons", "add", "--agent", "pending", "--at", pendingAt, "--note", "pending run", "--exec", "node", "--arg", "-e", "--arg", "console.log('pending-ran')", "--as-agent"]);
+  const pending = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "pending");
+  check(pending?.status === "pending-approval", "agent-created cron did not require approval");
+  const pendingAttempt = runFailure(["crons", "run", pending.id]);
+  check(pendingAttempt.status !== 0, "pending cron ran without approval");
+  check(!pendingAttempt.stdout.includes("pending-ran"), "pending cron executed its command");
+
+  run(["crons", "add", "--agent", "leap", "--cron", "0 0 29 2 *", "--note", "leap day", "--exec", "node", "--arg", "-e", "--arg", "console.log('leap')"]);
+  check(JSON.parse(run(["crons", "list", "--json"])).some((cron) => cron.agent === "leap"), "leap-day schedule was rejected");
 
   const sessionDirectory = join(home, ".claude", "projects", "-smoke-project");
   mkdirSync(sessionDirectory, { recursive: true });

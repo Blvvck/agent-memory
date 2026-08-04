@@ -33,7 +33,9 @@ agent-memory backup prune
 
 By default a restore goes to a temporary directory and prints the restored path. Inspect it, then copy what is needed.
 
-`--in-place --yes` merges the snapshot into the live memory after taking a pre-restore snapshot. It does not delete files that exist only in the current state. Agents must restore to a temporary directory and ask a person before restoring in place.
+`--in-place --yes` merges the snapshot into the live memory after taking a pre-restore snapshot. It does not delete files that exist only in the current state. Agents must restore to a temporary directory and ask a person before restoring in place. Restored paths are confined to the target directory, and in-place restore only accepts the configured global or project scope.
+
+`prune` only applies retention to snapshots tagged `agent-memory`, so it cannot forget unrelated snapshots in a shared repository.
 
 ## Password and recovery
 

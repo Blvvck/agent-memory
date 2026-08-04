@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { backupConfigPaths } from "./backup";
 
 interface Check {
   name: string;
@@ -64,8 +65,7 @@ function doctor(json: boolean): void {
 
   checks.push({ name: "symlinks", ok: symlinksWork(), detail: process.platform === "win32" ? "Windows may need Developer Mode or an import file fallback" : "available" });
 
-  const repo = join(ROOT, "backup", "repo");
-  const password = join(ROOT, "backup", "password");
+  const { repo, passwordFile: password } = backupConfigPaths();
   checks.push({ name: "backup repo", ok: existsSync(repo), detail: repo });
   checks.push({ name: "backup password", ok: existsSync(password), detail: password });
   if (process.platform === "win32" && existsSync(password)) {

@@ -149,7 +149,7 @@ A project-scoped body lives under `agents/<name>/` in the project's memory direc
 
 ## Platforms and dependencies
 
-macOS and Linux are the primary targets. Windows runs the Node CLI and restic. Harness `.cmd` shims need a runner override in `scheduler.json`; the backup password ACL is restricted to the current user with `icacls`.
+macOS and Linux are the primary targets. Windows runs the Node CLI and restic. Harness `.cmd` shims run through `cmd.exe`, and arguments containing shell metacharacters are rejected; use a native executable or command mode. The backup password ACL is restricted to the current user with `icacls`.
 
 Required: Node.js 18 or later. Optional: git for tracked scaffolds, restic for version history (`brew install restic`, `apt install restic`, `winget install restic`, or `scoop install restic`), and `sqlite3` or Node 22+ for Codex, OpenCode, and Antigravity session search.
 

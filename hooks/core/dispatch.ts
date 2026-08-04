@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { appendEvent, updateCurrentSession } from "../../common";
 import { projectMemoryRoot } from "../../memory-paths";
 import { syncSkills } from "../../skills";
-import { snapshotOnLifecycle } from "../../backup";
+import { snapshotInBackground } from "../../backup";
 import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
 
 interface HookPayload extends Record<string, unknown> {
@@ -205,7 +205,7 @@ export function dispatch(payload: HookPayload): HookResult {
   }
   if (event === "SessionStart" || firstAntigravityTurn) syncSkillsOnStart(cwd);
   if (event === "SessionEnd" || event === "PreCompact") {
-    try { snapshotOnLifecycle(); }
+    try { snapshotInBackground(cwd); }
     catch { /* backups fail open */ }
   }
   if (event === "PreToolUse") {

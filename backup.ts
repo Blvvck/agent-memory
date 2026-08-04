@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import { projectMemoryRoot } from "./memory-paths";
 
 interface BackupConfig {
@@ -195,6 +195,22 @@ export function snapshotScope(scope: "global" | "project", quiet = true): boolea
   return path && !scopeUsesGit(path) ? snapshot(path, quiet) : false;
 }
 
+export function backupConfigPaths(): { repo: string; passwordFile: string } {
+  const config = loadConfig();
+  return { repo: config.repo, passwordFile: config.passwordFile };
+}
+
+export function snapshotInBackground(cwd: string): void {
+  if (!resticAvailable()) return;
+  const child = spawn(process.execPath, [join(__dirname, "backup.js"), "snapshot", "--quiet"], {
+    cwd,
+    env: process.env,
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+}
+
 export function snapshotOnLifecycle(): void {
   if (!resticAvailable()) return;
   for (const scope of ["global", "project"] as const) {
@@ -258,11 +274,13 @@ function restoreSnapshot(snapshotItem: Snapshot, target: string): string {
   const result = runRestic(["restore", snapshotItem.id, "--target", target], 120_000);
   if (result.status !== 0) throw new Error(result.stderr.trim() || "restore failed");
   const original = snapshotItem.paths[0] ?? "";
-  const direct = join(target, original.replace(/^[A-Za-z]:[\\/]|^[\\/]/, ""));
+  const root = resolve(target);
+  const direct = resolve(target, original.replace(/^[A-Za-z]:[\\/]|^[\\/]/, ""));
+  if (!direct.startsWith(root + sep)) throw new Error("Snapshot path escapes the restore target.");
   if (pathExists(direct)) return direct;
   const wanted = basename(original);
-  const stack = [target];
-  for (let depth = 0; depth < 6 && stack.length; depth++) {
+  const stack = [root];
+  for (let depth = 0; depth < 16 && stack.length; depth++) {
     const next: string[] = [];
     for (const directory of stack) {
       let entries;
@@ -271,13 +289,16 @@ function restoreSnapshot(snapshotItem: Snapshot, target: string): string {
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const child = join(directory, entry.name);
-        if (entry.name === wanted) return child;
+        if (entry.name === wanted) {
+          const candidate = resolve(child);
+          if (candidate.startsWith(root + sep)) return candidate;
+        }
         next.push(child);
       }
     }
     stack.splice(0, stack.length, ...next);
   }
-  return target;
+  return root;
 }
 
 function status(): void {
@@ -384,6 +405,8 @@ function main(): void {
       if (!args.includes("--yes")) throw new Error("In-place restore requires --yes. Restore to a directory first to inspect it.");
       const original = chosen.paths[0];
       if (!original) throw new Error("Snapshot has no path to restore in place.");
+      const allowedScopes = [resolve(ROOT), scopePath("project")].filter((path): path is string => Boolean(path)).map((path) => resolve(path));
+      if (!allowedScopes.includes(resolve(original))) throw new Error("Refusing in-place restore outside the Agent Memory scope.");
       snapshot(original, true);
       cpSync(restored, original, { recursive: true, force: true });
       process.stdout.write(`[backup] merged ${chosen.short_id} into ${original} (pre-restore snapshot taken)\n`);
@@ -403,6 +426,7 @@ function main(): void {
     const config = loadConfig();
     const result = runRestic([
       "forget",
+      "--tag", "agent-memory",
       "--keep-last", String(config.retention.last),
       "--keep-daily", String(config.retention.daily),
       "--keep-weekly", String(config.retention.weekly),

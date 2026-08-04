@@ -393,9 +393,13 @@ function nextRunFor(schedule: ScheduleAt | ScheduleCron, from: Date, timeZone = 
   const parsed = parseCron(schedule.expression);
   if (!parsed) throw new Error(`Cannot parse cron '${schedule.expression}'.`);
   const [minutes, hours, days, months, weekdays] = parsed;
+  const monthLengths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (!days.some((day) => months.some((month) => day <= monthLengths[month - 1]))) {
+    throw new Error(`Cron '${schedule.expression}' selects a day that never occurs in the selected month.`);
+  }
   const candidate = new Date(from.getTime() + 60_000);
   candidate.setUTCSeconds(0, 0);
-  const limit = new Date(from.getTime() + 366 * 86_400_000);
+  const limit = new Date(from.getTime() + 5 * 366 * 86_400_000);
   const domRestricted = schedule.expression.split(/\s+/)[2] !== "*";
   const dowRestricted = schedule.expression.split(/\s+/)[4] !== "*";
   while (candidate <= limit) {
@@ -406,7 +410,7 @@ function nextRunFor(schedule: ScheduleAt | ScheduleCron, from: Date, timeZone = 
     if (minutes.includes(minute) && hours.includes(hour) && months.includes(month) && dayMatch) return new Date(candidate);
     candidate.setUTCMinutes(candidate.getUTCMinutes() + 1);
   }
-  throw new Error("No matching run time within one year.");
+  throw new Error("No matching run time within five years.");
 }
 
 function agentPrompt(cron: Cron): string {
@@ -461,7 +465,14 @@ function resolveWindowsCommand(command: string[]): string[] {
     const first = found.status === 0 ? (found.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) : "";
     if (first) resolved = first;
   }
-  if (/\.(cmd|bat)$/i.test(resolved)) return [comspec, "/d", "/s", "/c", resolved, ...args];
+  if (/\.(cmd|bat)$/i.test(resolved)) {
+    for (const arg of args) {
+      if (/[\r\n"&|<>^%!]/.test(arg)) {
+        throw new Error("A Windows .cmd runner argument contains shell metacharacters. Use a native executable or command mode instead.");
+      }
+    }
+    return [comspec, "/d", "/s", "/c", resolved, ...args];
+  }
   return [resolved, ...args];
 }
 
@@ -503,16 +514,18 @@ function claimDue(): Cron[] {
     const registry = loadRegistry();
     const now = Date.now();
     const due: Cron[] = [];
+    let changed = false;
     for (const cron of registry.crons) {
-      if (cron.status === "running") { cron.status = "active"; continue; }
+      if (cron.status === "running") { cron.status = "active"; changed = true; continue; }
       if (cron.status !== "active") continue;
       if (Date.parse(cron.nextRun) > now) continue;
       const missed = cron.schedule.type === "cron" ? Math.max(0, Math.floor((now - Date.parse(cron.nextRun)) / 60_000)) : 0;
       cron.status = "running";
       cron.missedRuns += missed;
       due.push({ ...cron });
+      changed = true;
     }
-    if (due.length) saveRegistry(registry);
+    if (changed) saveRegistry(registry);
     return due;
   });
 }
@@ -528,7 +541,18 @@ async function runDue(once: boolean): Promise<void> {
       process.stdout.write(`[cron] ${cron.id} skipped catch-up\n`);
       continue;
     }
-    await execute(cron);
+    try {
+      await execute(cron);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      updateCron(cron.id, (current) => {
+        current.status = current.schedule.type === "at" ? "archived" : "active";
+        current.lastRunAt = nowIso();
+        current.lastOutput = message;
+        if (current.schedule.type === "cron") current.nextRun = nextRunFor(current.schedule, new Date(), current.timezone).toISOString();
+      });
+      process.stdout.write(`[cron] ${cron.id} failed: ${message}\n`);
+    }
   }
   if (once && !due.length) process.stdout.write("[cron] nothing due\n");
 }
@@ -555,6 +579,7 @@ async function main(): Promise<void> {
     case "run": {
       if (!rest[0]) throw new Error("Provide a cron id.");
       const cron = findCron(rest[0]);
+      if (cron.status !== "active") throw new Error(`Cron ${cron.id} is ${cron.status}; approve or resume it first.`);
       await execute(cron);
       break;
     }
