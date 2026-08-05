@@ -466,12 +466,13 @@ function resolveWindowsCommand(command: string[]): string[] {
     if (first) resolved = first;
   }
   if (/\.(cmd|bat)$/i.test(resolved)) {
-    for (const arg of args) {
-      if (/[\r\n"&|<>^%!]/.test(arg)) {
+    const safeArgs = args.map((arg) => arg.replace(/\r?\n/g, " "));
+    for (const arg of safeArgs) {
+      if (/["&|<>^%!]/.test(arg)) {
         throw new Error("A Windows .cmd runner argument contains shell metacharacters. Use a native executable or command mode instead.");
       }
     }
-    return [comspec, "/d", "/s", "/c", resolved, ...args];
+    return [comspec, "/d", "/s", "/c", resolved, ...safeArgs];
   }
   return [resolved, ...args];
 }

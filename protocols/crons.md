@@ -113,7 +113,7 @@ When the daemon starts, any active cron whose `nextRun` has passed runs once. Mi
 ## Behavior and safety
 
 - Commands are spawned as argument arrays, not through a shell.
-- Windows `.cmd` and `.bat` runners execute through `cmd.exe`, so arguments containing shell metacharacters are rejected. Use a native executable or command mode instead.
+- Windows `.cmd` and `.bat` runners execute through `cmd.exe`. Newlines are flattened to spaces, and arguments containing shell metacharacters are rejected. Use a native executable or command mode for prompts that need exact formatting.
 - Each run has a timeout, defaults to 300 seconds.
 - Runs are claimed under a lock, so two daemons cannot run the same cron.
 - Output and exit status go to `~/.agent-memory/crons/runs.jsonl` and the cron record.
