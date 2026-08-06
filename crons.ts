@@ -42,6 +42,7 @@ interface Cron {
   status: Status;
   createdAt: string;
   nextRun: string;
+  runningSince?: string;
   bodyPath?: string;
   lastRunAt?: string;
   lastExitCode?: number | null;
@@ -66,7 +67,7 @@ interface Options {
   cwd?: string;
   timeout: number;
   catchUp: "once" | "skip";
-  createdBy: CreatedBy;
+  createdBy?: CreatedBy;
   bodyPath?: string;
   json: boolean;
   all: boolean;
@@ -133,7 +134,7 @@ function nowIso(): string {
 }
 
 function parseArgs(args: string[]): Options {
-  const options: Options = { timeout: 300, catchUp: "once", createdBy: "human", json: false, all: false, interval: 30, once: false, limit: 20 };
+  const options: Options = { timeout: 300, catchUp: "once", json: false, all: false, interval: 30, once: false, limit: 20 };
   const command: string[] = [];
   let jsonCommand: string[] | undefined;
   for (let index = 0; index < args.length; index++) {
@@ -163,6 +164,7 @@ function parseArgs(args: string[]): Options {
       if (value !== "once" && value !== "skip") throw new Error("--catch-up must be once or skip.");
       options.catchUp = value;
     } else if (arg === "--as-agent") options.createdBy = "agent";
+    else if (arg === "--as-human") options.createdBy = "human";
     else if (arg === "--body") options.bodyPath = args[++index];
     else if (arg === "--json") options.json = true;
     else if (arg === "--all") options.all = true;
@@ -186,14 +188,14 @@ Usage:
   agent-memory crons list [--all] [--json]
   agent-memory crons add --agent NAME (--at ISO | --cron "m h dom mon dow") --note TEXT
       (--runner claude|codex|opencode|antigravity|cursor | --exec PATH [--arg VALUE]...)
-      [--cwd PATH] [--timezone IANA] [--timeout SECONDS] [--catch-up once|skip] [--as-agent] [--body PATH]
+      [--cwd PATH] [--timezone IANA] [--timeout SECONDS] [--catch-up once|skip] [--as-human|--as-agent] [--body PATH]
   agent-memory crons approve <id>
   agent-memory crons pause|resume|delete <id>
   agent-memory crons run <id>
   agent-memory crons logs [--limit N] [--json]
   agent-memory crons daemon [--once] [--interval SECONDS]
 
-Agent-created crons start as pending-approval. A human runs approve to activate them.
+Crons are pending-approval by default. Pass --as-human to activate immediately. An agent must pass --as-agent, and a person runs approve before it fires.
 `;
 }
 
@@ -226,7 +228,8 @@ function addCron(options: Options): Cron {
   const target = commandOrRunner(options);
   const timezone = validateTimezone(options.timezone ?? localTimezone());
   const nextRun = nextRunFor(schedule, new Date(), timezone);
-  const status: Status = options.createdBy === "agent" ? "pending-approval" : "active";
+  const createdBy = options.createdBy ?? "agent";
+  const status: Status = createdBy === "human" ? "active" : "pending-approval";
   const cron: Cron = {
     id: newId(),
     agent: options.agent,
@@ -237,7 +240,7 @@ function addCron(options: Options): Cron {
     cwd: options.cwd ? resolve(options.cwd) : undefined,
     timeoutSeconds: options.timeout,
     catchUp: options.catchUp,
-    createdBy: options.createdBy,
+    createdBy,
     status,
     createdAt: nowIso(),
     nextRun: nextRun.toISOString(),
@@ -499,6 +502,7 @@ async function execute(cron: Cron): Promise<void> {
   appendFileSync(LOG, `${JSON.stringify({ id: cron.id, agent: cron.agent, startedAt, finishedAt, exitCode: result.code, output: tail })}\n`, "utf8");
   updateCron(cron.id, (current) => {
     current.status = "active";
+    delete current.runningSince;
     current.lastRunAt = finishedAt;
     current.lastExitCode = result.code;
     current.lastOutput = tail;
@@ -510,18 +514,39 @@ async function execute(cron: Cron): Promise<void> {
   if (tail) process.stdout.write(`${tail.split("\n").slice(-5).join("\n")}\n`);
 }
 
-function claimDue(): Cron[] {
+function claimCron(id: string): Cron {
   return withLock(() => {
+    const registry = loadRegistry();
+    const cron = registry.crons.find((item) => item.id === id || item.id.startsWith(id));
+    if (!cron) throw new Error(`No cron matches '${id}'.`);
+    if (cron.status !== "active") throw new Error(`Cron ${cron.id} is ${cron.status}; approve or resume it first.`);
+    cron.status = "running";
+    cron.runningSince = nowIso();
+    saveRegistry(registry);
+    return { ...cron };
+  });
+}
+
+function claimDue(): Cron[] {  return withLock(() => {
     const registry = loadRegistry();
     const now = Date.now();
     const due: Cron[] = [];
     let changed = false;
     for (const cron of registry.crons) {
-      if (cron.status === "running") { cron.status = "active"; changed = true; continue; }
+      if (cron.status === "running") {
+        const age = cron.runningSince ? Date.now() - Date.parse(cron.runningSince) : Infinity;
+        if (age > Math.max(600_000, cron.timeoutSeconds * 2000)) {
+          cron.status = "active";
+          delete cron.runningSince;
+          changed = true;
+        }
+        continue;
+      }
       if (cron.status !== "active") continue;
       if (Date.parse(cron.nextRun) > now) continue;
       const missed = cron.schedule.type === "cron" ? Math.max(0, Math.floor((now - Date.parse(cron.nextRun)) / 60_000)) : 0;
       cron.status = "running";
+      cron.runningSince = nowIso();
       cron.missedRuns += missed;
       due.push({ ...cron });
       changed = true;
@@ -548,6 +573,7 @@ async function runDue(once: boolean): Promise<void> {
       const message = error instanceof Error ? error.message : String(error);
       updateCron(cron.id, (current) => {
         current.status = current.schedule.type === "at" ? "archived" : "active";
+        delete current.runningSince;
         current.lastRunAt = nowIso();
         current.lastOutput = message;
         if (current.schedule.type === "cron") current.nextRun = nextRunFor(current.schedule, new Date(), current.timezone).toISOString();
@@ -579,14 +605,23 @@ async function main(): Promise<void> {
     case "delete": if (!rest[0]) throw new Error("Provide a cron id."); process.stdout.write(`${archiveCron(rest[0]).id} archived\n`); break;
     case "run": {
       if (!rest[0]) throw new Error("Provide a cron id.");
-      const cron = findCron(rest[0]);
-      if (cron.status !== "active") throw new Error(`Cron ${cron.id} is ${cron.status}; approve or resume it first.`);
-      await execute(cron);
+      const cron = claimCron(rest[0]);
+      try {
+        await execute(cron);
+      } catch (error) {
+        updateCron(cron.id, (current) => {
+          current.status = current.schedule.type === "at" ? "archived" : "active";
+          delete current.runningSince;
+          current.lastRunAt = nowIso();
+          current.lastOutput = error instanceof Error ? error.message : String(error);
+        });
+        throw error;
+      }
       break;
     }
     case "logs": {
       if (!pathExists(LOG)) { process.stdout.write("No runs.\n"); break; }
-      const lines = readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).slice(-20);
+      const lines = readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).slice(-options.limit);
       if (options.json) process.stdout.write(`[${lines.join(",")}]\n`);
       else for (const line of lines) {
         try {

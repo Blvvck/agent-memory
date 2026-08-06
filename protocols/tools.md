@@ -108,7 +108,7 @@ agent-memory sessions --harness codex --json
 agent-memory crons list
 agent-memory crons list --all --json
 agent-memory crons add --agent <name> --at "2026-11-20T09:00:00Z" \
-  --note "What to do" --exec node --arg script.js [--timeout 600]
+  --note "What to do" --exec node --arg script.js [--timeout 600] --as-human
 agent-memory crons add --agent <name> --cron "0 9 * * 1-5" \
   --timezone Europe/London --note "What to do" --runner claude --as-agent
 agent-memory crons approve <id>
@@ -130,9 +130,10 @@ agent-memory crons daemon --once
 | `--cwd` | Working directory |
 | `--timeout` | Seconds per run |
 | `--catch-up` | `once` (default) or `skip` |
+| `--as-human` | Marks the cron human-created; active immediately |
 | `--as-agent` | Marks the cron agent-created; starts `pending-approval` |
 
-An agent must pass `--as-agent` for any cron it creates. Without it, the cron is treated as human-created and runs immediately. See `crons.md`.
+An agent must pass `--as-agent` for any cron it creates. Crons are pending-approval by default; `--as-human` activates one immediately. See `crons.md`.
 
 ## Diagnostics
 

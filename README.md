@@ -95,13 +95,13 @@ It reads Claude Code JSONL, Codex thread history, OpenCode storage, and Antigrav
 `agent-memory crons` schedules a command or an agent wake:
 
 ```bash
-agent-memory crons add --agent loom --at "2026-11-20T09:00:00Z" --note "Rebuild the index" --exec node --arg scripts/rebuild.js
-agent-memory crons add --agent loom --cron "0 9 * * 1-5" --note "Check the queue" --runner claude
+agent-memory crons add --agent loom --at "2026-11-20T09:00:00Z" --note "Rebuild the index" --exec node --arg scripts/rebuild.js --as-human
+agent-memory crons add --agent loom --cron "0 9 * * 1-5" --note "Check the queue" --runner claude --as-human
 agent-memory crons list
 agent-memory crons daemon --interval 30
 ```
 
-A human-created cron runs directly. An agent-created cron (`--as-agent`) starts as `pending-approval` until a human runs `agent-memory crons approve <id>`. `daemon` needs a process supervisor; missed runs execute once when it starts. The full procedure is in [`protocols/crons.md`](protocols/crons.md).
+A cron created with `--as-human` runs directly. Without a flag, or with `--as-agent`, it starts as `pending-approval` until a person runs `agent-memory crons approve <id>`. `daemon` needs a process supervisor; missed runs execute once when it starts. The full procedure is in [`protocols/crons.md`](protocols/crons.md).
 
 Runners: `claude`, `codex`, `opencode`, `antigravity`, and `cursor`. Override any command template in `~/.agent-memory/scheduler.json`. `--timezone` sets the zone used by a cron expression.
 

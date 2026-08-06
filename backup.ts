@@ -254,8 +254,11 @@ function listSnapshots(scope?: "global" | "project"): Snapshot[] {
   if (result.status !== 0) return [];
   const snapshots = parseSnapshots(result.stdout).filter((item) => item.tags.includes("agent-memory"));
   if (!scope) return snapshots;
-  const tag = scope === "global" ? "global" : "project:";
-  return snapshots.filter((item) => item.tags.some((value) => scope === "global" ? value === tag : value.startsWith(tag)));
+  if (scope === "global") return snapshots.filter((item) => item.tags.includes("global"));
+  const projectPath = scopePath("project");
+  if (!projectPath) return [];
+  const projectTag = scopeTag(projectPath);
+  return snapshots.filter((item) => item.tags.includes(projectTag));
 }
 
 function chooseSnapshot(all: Snapshot[], id?: string, latest?: boolean, before?: string): Snapshot | null {
@@ -407,7 +410,7 @@ function main(): void {
       if (!original) throw new Error("Snapshot has no path to restore in place.");
       const allowedScopes = [resolve(ROOT), scopePath("project")].filter((path): path is string => Boolean(path)).map((path) => resolve(path));
       if (!allowedScopes.includes(resolve(original))) throw new Error("Refusing in-place restore outside the Agent Memory scope.");
-      snapshot(original, true);
+      if (!snapshot(original, true)) throw new Error("Pre-restore snapshot failed; refusing to overwrite the live memory.");
       cpSync(restored, original, { recursive: true, force: true });
       process.stdout.write(`[backup] merged ${chosen.short_id} into ${original} (pre-restore snapshot taken)\n`);
     }

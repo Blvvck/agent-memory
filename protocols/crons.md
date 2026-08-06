@@ -9,13 +9,13 @@ A cron runs a command or wakes an agent at a scheduled time. Use it when work sh
 agent-memory crons add --agent loom \
   --at "2026-11-20T09:00:00Z" \
   --note "Rebuild the index" \
-  --exec node --arg scripts/rebuild.js --cwd /path/to/project --timeout 600
+  --exec node --arg scripts/rebuild.js --cwd /path/to/project --timeout 600 --as-human
 
 # Run a command on a schedule
 agent-memory crons add --agent loom \
   --cron "0 9 * * 1-5" \
   --note "Check the ingestion backlog" \
-  --exec node --arg scripts/check-backlog.js
+  --exec node --arg scripts/check-backlog.js --as-human
 
 # Wake an agent with a task
 # Add --as-agent when the agent creates this itself.
@@ -26,7 +26,7 @@ agent-memory crons add --agent loom \
   --runner claude --as-agent
 ```
 
-An agent must pass `--as-agent` on every cron it creates. Without it the cron is treated as human-created and runs immediately, with no approval step.
+Crons are pending-approval by default. A person creating a cron for themselves passes `--as-human` to activate it immediately. An agent must pass `--as-agent`, and a person runs approve before it fires.
 
 The schedule is either a single `--at` timestamp or a five-field `--cron` expression. Cron expressions are evaluated in `--timezone`, which defaults to the machine's local zone. A target is either `--runner claude|codex|opencode|antigravity|cursor` or an argument array (`--exec` and repeated `--arg`, or `--command '["node","script.js"]'`).
 
@@ -52,7 +52,7 @@ Override or add a runner in `~/.agent-memory/scheduler.json`:
 
 ## Approval
 
-A cron created by a human is active immediately. An agent-created cron (`--as-agent`) starts as `pending-approval`:
+Crons are pending-approval by default. A person creating one for themselves passes `--as-human` and it is active immediately. An agent passes `--as-agent` and waits for a person to approve it:
 
 ```bash
 agent-memory crons approve <id>

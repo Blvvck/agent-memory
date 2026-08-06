@@ -93,13 +93,13 @@ try {
     env.PATH = `${bin};${env.PATH ?? ""}`;
     env.Path = env.PATH;
     const at = new Date(Date.now() + 3_600_000).toISOString();
-    run(["crons", "add", "--agent", "winrunner", "--at", at, "--note", "win shim", "--runner", "claude"]);
+    run(["crons", "add", "--agent", "winrunner", "--at", at, "--note", "win shim", "--runner", "claude", "--as-human"]);
     const winCron = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "winrunner");
     check(Boolean(winCron), "Windows shim cron not listed");
     const winOutput = run(["crons", "run", winCron.id]);
     check(winOutput.includes("fake-claude"), "Windows .cmd runner override did not execute");
     const trapAt = new Date(Date.now() + 3_600_000).toISOString();
-    run(["crons", "add", "--agent", "wintrap", "--at", trapAt, "--note", "safe & echo HACKED", "--runner", "claude"]);
+    run(["crons", "add", "--agent", "wintrap", "--at", trapAt, "--note", "safe & echo HACKED", "--runner", "claude", "--as-human"]);
     const trap = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "wintrap");
     const trapAttempt = runFailure(["crons", "run", trap.id]);
     check(trapAttempt.status !== 0, "Windows .cmd runner accepted shell metacharacters");
@@ -109,21 +109,28 @@ try {
   }
 
   const at = new Date(Date.now() + 3_600_000).toISOString();
-  run(["crons", "add", "--agent", "smoke", "--at", at, "--note", "smoke run", "--exec", "node", "--arg", "-e", "--arg", "console.log('cron-ok')"]);
+  run(["crons", "add", "--agent", "smoke", "--at", at, "--note", "smoke run", "--exec", "node", "--arg", "-e", "--arg", "console.log('cron-ok')", "--as-human"]);
   const crons = JSON.parse(run(["crons", "list", "--json"])).filter((cron) => cron.agent === "smoke");
   check(crons.length === 1, "cron not listed");
   const cronOutput = run(["crons", "run", crons[0].id]);
   check(cronOutput.includes("cron-ok"), "cron command did not execute");
+  const logLines = run(["crons", "logs", "--limit", "1"]).trim().split("\n").filter(Boolean);
+  check(logLines.length === 1, "crons logs --limit was ignored");
+  run(["crons", "add", "--agent", "pauseable", "--cron", "0 0 1 1 *", "--note", "paused run", "--exec", "node", "--arg", "-e", "--arg", "console.log('paused')", "--as-human"]);
+  const pauseable = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "pauseable");
+  run(["crons", "pause", pauseable.id]);
+  check(runFailure(["crons", "run", pauseable.id]).status !== 0, "paused cron ran");
+  run(["crons", "resume", pauseable.id]);
 
   const pendingAt = new Date(Date.now() + 3_600_000).toISOString();
-  run(["crons", "add", "--agent", "pending", "--at", pendingAt, "--note", "pending run", "--exec", "node", "--arg", "-e", "--arg", "console.log('pending-ran')", "--as-agent"]);
+  run(["crons", "add", "--agent", "pending", "--at", pendingAt, "--note", "pending run", "--exec", "node", "--arg", "-e", "--arg", "console.log('pending-ran')"]);
   const pending = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "pending");
   check(pending?.status === "pending-approval", "agent-created cron did not require approval");
   const pendingAttempt = runFailure(["crons", "run", pending.id]);
   check(pendingAttempt.status !== 0, "pending cron ran without approval");
   check(!pendingAttempt.stdout.includes("pending-ran"), "pending cron executed its command");
 
-  run(["crons", "add", "--agent", "leap", "--cron", "0 0 29 2 *", "--note", "leap day", "--exec", "node", "--arg", "-e", "--arg", "console.log('leap')"]);
+  run(["crons", "add", "--agent", "leap", "--cron", "0 0 29 2 *", "--note", "leap day", "--exec", "node", "--arg", "-e", "--arg", "console.log('leap')", "--as-human"]);
   check(JSON.parse(run(["crons", "list", "--json"])).some((cron) => cron.agent === "leap"), "leap-day schedule was rejected");
 
   const sessionDirectory = join(home, ".claude", "projects", "-smoke-project");
