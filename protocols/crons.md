@@ -58,7 +58,7 @@ Crons are pending-approval by default. A person creating one for themselves pass
 agent-memory crons approve <id>
 ```
 
-This is the boundary against an agent scheduling unattended work on its own. Do not approve a command you would not run yourself.
+This is the boundary against an agent scheduling unattended work on its own. Do not approve a command you would not run yourself. Pending crons are surfaced at session start and in `agent-memory crons list`, so approval does not depend on catching the add output.
 
 ## Visibility
 

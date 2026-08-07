@@ -172,7 +172,7 @@ It reads the local session stores for Claude Code, Codex, OpenCode, Antigravity,
 
 Use `agent-memory crons` when work should happen later without a person starting a session.
 
-An agent schedules on its own initiative with `--as-agent`. Crons are `pending-approval` by default, and a person must approve one before it fires. A person creating a cron for themselves passes `--as-human` to activate it immediately. An agent must always pass `--as-agent`.
+An agent schedules on its own initiative with `--as-agent`. Crons are `pending-approval` by default, and a person must approve one before it fires. Pending crons are surfaced at session start and in `agent-memory crons list`. A person creating a cron for themselves passes `--as-human` to activate it immediately. An agent must always pass `--as-agent`.
 
 ```bash
 agent-memory crons add --agent <your-name> --cron "0 9 * * 1" \

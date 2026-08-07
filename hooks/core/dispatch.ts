@@ -9,6 +9,7 @@ import { appendEvent, updateCurrentSession } from "../../common";
 import { projectMemoryRoot } from "../../memory-paths";
 import { syncSkills } from "../../skills";
 import { snapshotInBackground } from "../../backup";
+import { pendingCronSummary } from "../../crons";
 import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
 
 interface HookPayload extends Record<string, unknown> {
@@ -203,7 +204,11 @@ export function dispatch(payload: HookPayload): HookResult {
     contexts.push(reason);
     if (["PreToolUse", "UserPromptSubmit"].includes(event)) blocks.push(reason);
   }
-  if (event === "SessionStart" || firstAntigravityTurn) syncSkillsOnStart(cwd);
+  if (event === "SessionStart" || firstAntigravityTurn) {
+    syncSkillsOnStart(cwd);
+    const pending = pendingCronSummary();
+    if (pending) contexts.push(pending);
+  }
   if (event === "SessionEnd" || event === "PreCompact") {
     try { snapshotInBackground(cwd); }
     catch { /* backups fail open */ }

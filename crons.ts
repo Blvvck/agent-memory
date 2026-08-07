@@ -514,6 +514,18 @@ async function execute(cron: Cron): Promise<void> {
   if (tail) process.stdout.write(`${tail.split("\n").slice(-5).join("\n")}\n`);
 }
 
+export function pendingCronSummary(): string {
+  try {
+    const registry = loadRegistry();
+    const pending = registry.crons.filter((cron) => cron.status === "pending-approval");
+    if (!pending.length) return "";
+    const names = pending.slice(0, 5).map((cron) => `${cron.id} (${cron.agent})`).join(", ");
+    return `${pending.length} scheduled cron${pending.length === 1 ? "" : "s"} await approval: ${names}${pending.length > 5 ? ", …" : ""}. Run agent-memory crons approve <id>.`;
+  } catch {
+    return "";
+  }
+}
+
 function claimCron(id: string): Cron {
   return withLock(() => {
     const registry = loadRegistry();

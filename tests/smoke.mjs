@@ -129,6 +129,13 @@ try {
   const pendingAttempt = runFailure(["crons", "run", pending.id]);
   check(pendingAttempt.status !== 0, "pending cron ran without approval");
   check(!pendingAttempt.stdout.includes("pending-ran"), "pending cron executed its command");
+  const sessionStart = spawnSync(process.execPath, [join(repo, "dist", "hooks", "core", "dispatch.js")], {
+    cwd: project,
+    env: { ...env, AGENT_HOOK_SOURCE: "claude" },
+    input: JSON.stringify({ hook_event_name: "SessionStart", session_id: "smoke", cwd: project }),
+    encoding: "utf8",
+  });
+  check(sessionStart.stdout.includes("await approval"), "pending cron was not surfaced at session start");
 
   run(["crons", "add", "--agent", "leap", "--cron", "0 0 29 2 *", "--note", "leap day", "--exec", "node", "--arg", "-e", "--arg", "console.log('leap')", "--as-human"]);
   check(JSON.parse(run(["crons", "list", "--json"])).some((cron) => cron.agent === "leap"), "leap-day schedule was rejected");
