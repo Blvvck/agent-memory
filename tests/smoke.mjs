@@ -65,6 +65,26 @@ function findNamed(root, name) {
   return null;
 }
 
+function readJson(path) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function writeJson(path, value) {
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function wait(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function resticRun(args) {
+  return spawnSync("restic", [
+    "--repo", join(home, ".agent-memory", "backup", "repo"),
+    "--password-file", join(home, ".agent-memory", "backup", "password"),
+    ...args,
+  ], { env, encoding: "utf8", timeout: 120_000 });
+}
+
 try {
   spawnSync("git", ["init", "-q", "."], { cwd: project, env, encoding: "utf8" });
 
@@ -139,6 +159,21 @@ try {
 
   run(["crons", "add", "--agent", "leap", "--cron", "0 0 29 2 *", "--note", "leap day", "--exec", "node", "--arg", "-e", "--arg", "console.log('leap')", "--as-human"]);
   check(JSON.parse(run(["crons", "list", "--json"])).some((cron) => cron.agent === "leap"), "leap-day schedule was rejected");
+  const impossible = runFailure(["crons", "add", "--agent", "impossible", "--cron", "0 0 30 2 *", "--note", "never", "--exec", "node", "--arg", "-e", "--arg", "console.log('never')", "--as-human"]);
+  check(impossible.status !== 0 && impossible.stderr.includes("never occurs"), "impossible date was accepted");
+
+  run(["crons", "add", "--agent", "stale", "--cron", "0 0 1 1 *", "--note", "stale run", "--exec", "node", "--arg", "-e", "--arg", "console.log('stale-ok')", "--as-human"]);
+  const cronRegistry = join(home, ".agent-memory", "crons.json");
+  const registry = readJson(cronRegistry);
+  const stale = registry.crons.find((cron) => cron.agent === "stale");
+  stale.status = "running";
+  stale.runningSince = new Date(Date.now() - 3_600_000).toISOString();
+  stale.nextRun = new Date(Date.now() - 60_000).toISOString();
+  writeJson(cronRegistry, registry);
+  run(["crons", "daemon", "--once"]);
+  check(readJson(cronRegistry).crons.find((cron) => cron.id === stale.id)?.status === "active", "stale running cron was not persisted as active");
+  const staleRun = run(["crons", "daemon", "--once"]);
+  check(staleRun.includes("stale-ok"), "recovered stale cron did not run");
 
   const sessionDirectory = join(home, ".claude", "projects", "-smoke-project");
   mkdirSync(sessionDirectory, { recursive: true });
@@ -159,6 +194,51 @@ try {
   check(restored.includes("[backup] restored"), "restore did not report a snapshot");
   check(findNamed(restoreTarget, "AGENTS.md") !== null, "restored AGENTS.md not found");
   check(existsSync(join(home, ".agent-memory", "AGENTS.md")), "global AGENTS.md vanished during smoke");
+
+  const pruneDir = join(home, "outside-prune");
+  mkdirSync(pruneDir, { recursive: true });
+  writeFileSync(join(pruneDir, "keep.txt"), "keep\n", "utf8");
+  check(resticRun(["backup", "--tag", "other", pruneDir]).status === 0, "external restic snapshot failed");
+  run(["backup", "prune"]);
+  const otherSnapshots = JSON.parse(resticRun(["snapshots", "--json", "--tag", "other"]).stdout ?? "[]");
+  check(otherSnapshots.length === 1, "prune removed an unrelated snapshot");
+
+  const scopeDir = join(home, "outside-scope");
+  mkdirSync(scopeDir, { recursive: true });
+  writeFileSync(join(scopeDir, "foreign.txt"), "foreign\n", "utf8");
+  check(resticRun(["backup", "--tag", "agent-memory", scopeDir]).status === 0, "external scope snapshot failed");
+  const allSnapshots = JSON.parse(resticRun(["snapshots", "--json"]).stdout ?? "[]");
+  const outside = allSnapshots.find((snapshot) => snapshot.paths?.some((path) => path.includes("outside-scope")));
+  check(Boolean(outside), "external scope snapshot not found");
+  const scopeReject = runFailure(["backup", "restore", outside.short_id, "--in-place", "--yes"]);
+  check(scopeReject.status !== 0, "in-place restore outside scope was allowed");
+  check(scopeReject.stderr.includes("outside the Agent Memory scope"), "in-place restore refusal did not name the scope");
+
+  const beforeLifecycle = JSON.parse(run(["backup", "list", "--json"])).length;
+  const hookStarted = Date.now();
+  spawnSync(process.execPath, [join(repo, "dist", "hooks", "core", "dispatch.js")], {
+    cwd: project,
+    env: { ...env, AGENT_HOOK_SOURCE: "claude" },
+    input: JSON.stringify({ hook_event_name: "SessionEnd", session_id: "smoke", cwd: project }),
+    encoding: "utf8",
+  });
+  check(Date.now() - hookStarted < 5_000, "SessionEnd hook blocked on a snapshot");
+  let afterLifecycle = beforeLifecycle;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    wait(500);
+    afterLifecycle = JSON.parse(run(["backup", "list", "--json"])).length;
+    if (afterLifecycle > beforeLifecycle) break;
+  }
+  check(afterLifecycle > beforeLifecycle, "detached lifecycle snapshot did not run");
+
+  const customBackup = join(home, "custom-backup");
+  writeJson(join(home, ".agent-memory", "backup.json"), {
+    repo: join(customBackup, "repo"),
+    passwordFile: join(customBackup, "password"),
+  });
+  run(["backup", "snapshot", "--scope", "global"]);
+  check(run(["backup", "status"]).includes(join(customBackup, "repo")), "backup status ignored custom repo");
+  check(run(["doctor"]).includes(join(customBackup, "repo")), "doctor ignored custom repo");
 
   process.stdout.write(`Smoke passed on ${process.platform} ${process.arch} Node ${process.version}\n`);
 } finally {
