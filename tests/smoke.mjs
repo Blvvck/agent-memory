@@ -17,6 +17,7 @@ const env = {
   XDG_DATA_HOME: join(home, ".local", "share"),
   CODEX_HOME: join(home, ".codex"),
   CLAUDE_CONFIG_DIR: join(home, ".claude"),
+  NODE_ENV: "test",
 };
 if (!env.PATH && env.Path) env.PATH = env.Path;
 
@@ -186,6 +187,8 @@ try {
 
   const status = run(["backup", "status"]);
   check(status.includes("restic: restic"), "restic is not installed");
+  const restoreMarker = join(home, ".agent-memory", "restore-marker.txt");
+  writeFileSync(restoreMarker, "old\n", "utf8");
   run(["backup", "snapshot", "--scope", "global"]);
   const snapshots = JSON.parse(run(["backup", "list", "--scope", "global", "--json"]));
   check(snapshots.length >= 1, "no backup snapshot was listed");
@@ -194,6 +197,16 @@ try {
   check(restored.includes("[backup] restored"), "restore did not report a snapshot");
   check(findNamed(restoreTarget, "AGENTS.md") !== null, "restored AGENTS.md not found");
   check(existsSync(join(home, ".agent-memory", "AGENTS.md")), "global AGENTS.md vanished during smoke");
+
+  const markerSnapshot = snapshots[snapshots.length - 1];
+  writeFileSync(restoreMarker, "current\n", "utf8");
+  env.AGENT_MEMORY_TEST_FAIL_SNAPSHOT = "1";
+  const failedRestore = runFailure(["backup", "restore", markerSnapshot.short_id, "--in-place", "--yes"]);
+  delete env.AGENT_MEMORY_TEST_FAIL_SNAPSHOT;
+  check(failedRestore.status !== 0, "in-place restore continued without a safety snapshot");
+  check(readFileSync(restoreMarker, "utf8").trim() === "current", "failed safety snapshot still overwrote live memory");
+  run(["backup", "restore", markerSnapshot.short_id, "--in-place", "--yes"]);
+  check(readFileSync(restoreMarker, "utf8").trim() === "old", "successful in-place restore did not apply the snapshot");
 
   const pruneDir = join(home, "outside-prune");
   mkdirSync(pruneDir, { recursive: true });

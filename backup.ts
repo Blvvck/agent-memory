@@ -154,6 +154,8 @@ function scopeTag(path: string): string {
 }
 
 function snapshot(path: string, quiet = false): boolean {
+  // Test seam: proves in-place restore aborts when its safety snapshot fails. It can only refuse a snapshot.
+  if (process.env.NODE_ENV === "test" && process.env.AGENT_MEMORY_TEST_FAIL_SNAPSHOT === "1") return false;
   const ready = ensureRepo();
   if (!ready.ok) {
     if (!quiet) process.stderr.write(`${ready.message}\n`);
