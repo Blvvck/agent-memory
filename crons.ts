@@ -194,6 +194,7 @@ Usage:
   agent-memory crons run <id>
   agent-memory crons logs [--limit N] [--json]
   agent-memory crons daemon [--once] [--interval SECONDS]
+  agent-memory crons probe <runner>   Run the runner with --version through the same resolver
 
 Crons are pending-approval by default. Pass --as-human to activate immediately. An agent must pass --as-agent, and a person runs approve before it fires.
 `;
@@ -650,6 +651,15 @@ async function main(): Promise<void> {
         if (options.once) break;
         await new Promise((resolvePromise) => setTimeout(resolvePromise, options.interval * 1000));
       } while (true);
+      break;
+    }
+    case "probe": {
+      if (!rest[0]) throw new Error("Provide a runner name, such as claude or codex.");
+      const [executable, ...args] = resolveWindowsCommand([rest[0], "--version"]);
+      const result = spawnSync(executable, args, { env: process.env, encoding: "utf8", timeout: 30_000 });
+      if (result.stdout) process.stdout.write(result.stdout);
+      if (result.stderr) process.stderr.write(result.stderr);
+      if (result.status !== 0) process.exitCode = result.status ?? 1;
       break;
     }
     default: throw new Error(`Unknown command '${command}'.`);

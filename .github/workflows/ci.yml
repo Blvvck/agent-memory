@@ -43,5 +43,12 @@ jobs:
             choco install sqlite -y --no-progress || true
           fi
 
+      - name: Install Claude Code CLI
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          npm install --global @anthropic-ai/claude-code --no-audit --no-fund
+          echo "$(npm prefix -g)" >> "$GITHUB_PATH"
+
       - name: Smoke
         run: node tests/smoke.mjs

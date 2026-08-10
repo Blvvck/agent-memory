@@ -86,6 +86,12 @@ function resticRun(args) {
   ], { env, encoding: "utf8", timeout: 120_000 });
 }
 
+function sqlite(db, sql) {
+  mkdirSync(dirname(db), { recursive: true });
+  const result = spawnSync("sqlite3", [db, sql], { env, encoding: "utf8", timeout: 60_000 });
+  check(result.status === 0, `sqlite fixture failed: ${result.stderr}`);
+}
+
 try {
   spawnSync("git", ["init", "-q", "."], { cwd: project, env, encoding: "utf8" });
 
@@ -127,6 +133,8 @@ try {
     check(!trapAttempt.stdout.includes("HACKED"), "Windows .cmd runner executed an injected command");
     const passwordAcl = spawnSync("icacls", [join(home, ".agent-memory", "backup", "password")], { encoding: "utf8" });
     check(!/BUILTIN\\Users:\(R\)|Everyone:\(R\)/.test(passwordAcl.stdout ?? ""), "backup password ACL is too broad");
+    const realProbe = run(["crons", "probe", "claude"]);
+    check(realProbe.trim().length > 0, "real Claude Code .cmd shim did not run through the resolver");
   }
 
   const at = new Date(Date.now() + 3_600_000).toISOString();
@@ -184,6 +192,43 @@ try {
   ].join("\n"), "utf8");
   const sessions = run(["sessions", "--search", "smoke session", "--harness", "claude", "--limit", "2"]);
   check(sessions.includes("smoke session hello"), "session search did not find the fixture");
+
+  const now = Date.now();
+  sqlite(join(home, ".codex", "thread_history_1.sqlite"), `
+    CREATE TABLE thread_turns (thread_id TEXT, turn_id TEXT, started_at INTEGER, completed_at INTEGER);
+    CREATE TABLE thread_items (thread_id TEXT, turn_id TEXT, item_id TEXT, created_at_ms INTEGER, item_json TEXT, item_type TEXT);
+    INSERT INTO thread_turns VALUES ('t1', 'turn1', ${now}, ${now});
+    INSERT INTO thread_items VALUES ('t1', 'turn1', 'i1', ${now - 1000}, '{"content":[{"type":"text","text":"codex smoke hello"}]}', 'userMessage');
+    INSERT INTO thread_items VALUES ('t1', 'turn1', 'i2', ${now}, '{"text":"codex smoke reply"}', 'agentMessage');
+  `);
+  check(run(["sessions", "--harness", "codex", "--search", "codex smoke", "--limit", "2"]).includes("codex smoke hello"), "Codex session adapter failed");
+
+  sqlite(join(home, ".local", "share", "opencode", "opencode.db"), `
+    CREATE TABLE session (id TEXT, title TEXT, directory TEXT, time_created INTEGER, time_updated INTEGER);
+    CREATE TABLE message (id TEXT, session_id TEXT, data TEXT, time_created INTEGER);
+    CREATE TABLE part (id TEXT, message_id TEXT, session_id TEXT, data TEXT, time_created INTEGER);
+    INSERT INTO session VALUES ('s1', 'opencode smoke title', '/tmp/project', ${now}, ${now});
+    INSERT INTO message VALUES ('m1', 's1', '{"role":"user"}', ${now});
+    INSERT INTO part VALUES ('p1', 'm1', 's1', '{"type":"text","text":"opencode smoke hello"}', ${now});
+  `);
+  check(run(["sessions", "--harness", "opencode", "--search", "opencode smoke", "--limit", "2"]).includes("opencode smoke hello"), "OpenCode session adapter failed");
+
+  sqlite(join(home, ".gemini", "antigravity-cli", "conversation_summaries.db"), `
+    CREATE TABLE conversation_summaries (conversation_id TEXT, title TEXT, preview TEXT, last_modified_time TEXT, workspace_uris TEXT);
+    INSERT INTO conversation_summaries VALUES ('a1', 'antigravity smoke title', 'antigravity smoke preview', '2026-11-18T00:00:00Z', 'file:///tmp');
+  `);
+  check(run(["sessions", "--harness", "antigravity", "--search", "antigravity smoke", "--limit", "2"]).includes("antigravity smoke"), "Antigravity session adapter failed");
+
+  const cursorDb = process.platform === "win32"
+    ? join(env.APPDATA || join(home, "AppData", "Roaming"), "Cursor", "User", "globalStorage", "state.vscdb")
+    : process.platform === "darwin"
+      ? join(home, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb")
+      : join(home, ".config", "Cursor", "User", "globalStorage", "state.vscdb");
+  sqlite(cursorDb, `
+    CREATE TABLE cursorDiskKV (key TEXT, value TEXT);
+    INSERT INTO cursorDiskKV VALUES ('composerData:c1', '{"text":"cursor smoke hello"}');
+  `);
+  check(run(["sessions", "--harness", "cursor", "--search", "cursor smoke", "--limit", "2"]).includes("cursor smoke hello"), "Cursor session adapter failed");
 
   const status = run(["backup", "status"]);
   check(status.includes("restic: restic"), "restic is not installed");
