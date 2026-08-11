@@ -466,7 +466,8 @@ function resolveWindowsCommand(command: string[]): string[] {
   let resolved = executable;
   if (!/[\\/]/.test(executable) && !/\.(exe|cmd|bat|com)$/i.test(executable)) {
     const found = spawnSync("where", [executable], { encoding: "utf8" });
-    const first = found.status === 0 ? (found.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) : "";
+    const lines = found.status === 0 ? (found.stdout ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
+    const first = lines.find((line) => /\.(exe|cmd|bat|com)$/i.test(line)) ?? lines[0];
     if (first) resolved = first;
   }
   if (/\.(cmd|bat)$/i.test(resolved)) {
