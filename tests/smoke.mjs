@@ -133,8 +133,10 @@ try {
     check(!trapAttempt.stdout.includes("HACKED"), "Windows .cmd runner executed an injected command");
     const passwordAcl = spawnSync("icacls", [join(home, ".agent-memory", "backup", "password")], { encoding: "utf8" });
     check(!/BUILTIN\\Users:\(R\)|Everyone:\(R\)/.test(passwordAcl.stdout ?? ""), "backup password ACL is too broad");
-    const realProbe = run(["crons", "probe", "claude"]);
-    check(realProbe.trim().length > 0, "real Claude Code .cmd shim did not run through the resolver");
+    for (const runner of ["claude", "codex", "opencode"]) {
+      const probe = run(["crons", "probe", runner]);
+      check(probe.trim().length > 0, `real ${runner} shim did not run through the resolver`);
+    }
   }
 
   const at = new Date(Date.now() + 3_600_000).toISOString();
