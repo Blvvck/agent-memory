@@ -88,7 +88,7 @@ agent-memory sessions --search "migration rollback" --harness claude --limit 5
 agent-memory sessions --search "release" --project my-project --since 7d
 ```
 
-It reads Claude Code JSONL, Codex thread history, OpenCode storage, and Antigravity conversation summaries. Cursor composers are read when its application database is present. Antigravity exposes summaries, so its matches are title and preview level.
+It reads Claude Code JSONL, Codex thread history, OpenCode storage, and Antigravity conversation summaries. Cursor composers are read on a best-effort basis when its application database is present; Cursor's storage format is undocumented and may change. Antigravity exposes summaries, so its matches are title and preview level.
 
 ## Scheduled runs
 

@@ -81,7 +81,7 @@ Cron execution needs a process that stays alive:
 agent-memory crons daemon --interval 30
 ```
 
-Run it under a supervisor so it restarts after a reboot or crash.
+Run it under a supervisor so it restarts after a reboot or crash. The daemon environment must have the runner CLI installed and authenticated; `agent-memory crons probe <runner>` runs `--version` through the same resolver, which proves the command launches but not that the account is signed in.
 
 macOS `launchd`:
 

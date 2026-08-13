@@ -137,6 +137,11 @@ try {
       const probe = run(["crons", "probe", runner]);
       check(probe.trim().length > 0, `real ${runner} shim did not run through the resolver`);
     }
+    const longAt = new Date(Date.now() + 3_600_000).toISOString();
+    run(["crons", "add", "--agent", "winlong", "--at", longAt, "--note", "x".repeat(9_000), "--runner", "claude", "--as-human"]);
+    const winlong = JSON.parse(run(["crons", "list", "--json"])).find((cron) => cron.agent === "winlong");
+    const longAttempt = runFailure(["crons", "run", winlong.id]);
+    check(longAttempt.status !== 0 && longAttempt.stderr.includes("too long"), "oversized Windows .cmd command was not rejected");
   }
 
   const at = new Date(Date.now() + 3_600_000).toISOString();

@@ -477,6 +477,9 @@ function resolveWindowsCommand(command: string[]): string[] {
         throw new Error("A Windows .cmd runner argument contains shell metacharacters. Use a native executable or command mode instead.");
       }
     }
+    if ([resolved, ...safeArgs].join(" ").length > 7_000) {
+      throw new Error("The Windows .cmd runner command is too long. Use a native executable or command mode.");
+    }
     return [comspec, "/d", "/s", "/c", resolved, ...safeArgs];
   }
   return [resolved, ...args];

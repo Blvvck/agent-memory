@@ -118,6 +118,7 @@ agent-memory crons run <id>
 agent-memory crons logs --limit 20
 agent-memory crons daemon --interval 30
 agent-memory crons daemon --once
+agent-memory crons probe <runner>
 ```
 
 | Option | Meaning |
