@@ -50,7 +50,7 @@ function validSession(session: string): boolean {
 export function policyForPath(path: string): LogPolicy {
   const canonical = resolve(path);
   const name = basename(canonical).toUpperCase();
-  if (name === "PATTERNS.MD") return { name: "patterns", requireContext: true, ordering: null };
+  if (name === "PATTERNS.MD") return { name: "patterns", requireContext: true, ordering: "newest" };
   if (name === "ACTIVITY.MD") return { name: "activity", requireContext: true, ordering: "newest" };
   if (name === "NOTIFICATIONS.MD") return { name: "notifications", requireContext: true, ordering: "newest" };
   if (name === "MEMORY.MD" || name === "LEARNINGS.MD") return { name: name.toLowerCase().slice(0, -3), requireContext: true, ordering: "newest" };
@@ -147,7 +147,10 @@ function entries(text: string, policy: LogPolicy, allowLegacy = false): Entry[] 
     const header = rawHeader.replace(/\r$/, "");
     const afterHeader = start + rawHeader.length;
     const bodyStart = afterHeader + (text[afterHeader] === "\n" ? 1 : 0);
-    const end = index + 1 < parsed.length ? parsed[index + 1].match.index ?? text.length : text.length;
+    const nextEntry = index + 1 < parsed.length ? parsed[index + 1].match.index ?? text.length : text.length;
+    const nextHeading = /^##\s+/m.exec(text.slice(bodyStart));
+    const headingBoundary = nextHeading ? bodyStart + nextHeading.index : text.length;
+    const end = Math.min(nextEntry, headingBoundary);
     return { header, timestamp: match[2], start, bodyStart, end, body: text.slice(bodyStart, end), context, agent: isStrict ? match[4] : match[4], session: isStrict ? match[5] : match[5], strict: isStrict };
   });
 }
@@ -156,7 +159,7 @@ export function validateDocument(text: string, policy: LogPolicy, allowLegacy = 
   const found = entries(text, policy, allowLegacy);
   for (const entry of found) {
     const date = new Date(entry.timestamp);
-    const normalized = Number.isNaN(date.valueOf()) ? "" : entry.timestamp.includes("T") ? date.toISOString() : date.toISOString().slice(0, 10);
+    const normalized = Number.isNaN(date.valueOf()) ? "" : entry.timestamp.includes("T") ? date.toISOString().replace(/\.\d{3}Z$/, "Z") : date.toISOString().slice(0, 10);
     if (normalized !== entry.timestamp) throw new ProtectedLogError("entry timestamp is invalid");
   }
   if (!allowLegacy && new Set(found.map((entry) => entry.header)).size !== found.length) throw new ProtectedLogError("duplicate entry identity");
@@ -237,9 +240,6 @@ function insertForward(text: string, found: Entry[], target: string, newHeader: 
 function validateMutation(before: string, after: string, policy: LogPolicy): void {
   const oldEntries = validateDocument(before, policy, true);
   const newEntries = validateDocument(after, policy, true);
-  const oldPreamble = oldEntries.length ? before.slice(0, oldEntries[0].start) : before;
-  const newPreamble = newEntries.length ? after.slice(0, newEntries[0].start) : after;
-  if (oldPreamble !== newPreamble) throw new ProtectedLogError("protected log preamble changed");
   const oldHeaders = oldEntries.map((entry) => entry.header);
   const additions = newEntries.filter((entry) => !oldHeaders.includes(entry.header));
   if (additions.length !== 1) throw new ProtectedLogError("mutation must add exactly one entry");
@@ -303,6 +303,16 @@ function atomicWrite(path: string, content: string): void {
   }
 }
 
+function workLogInsertion(text: string): number | null {
+  const heading = /^## Work Log\s*$/m.exec(text);
+  if (!heading) return null;
+  const after = heading.index + heading[0].length;
+  const next = /^##\s+/m.exec(text.slice(after));
+  const limit = next ? after + next.index : text.length;
+  const entries = matches(headerPattern, text).filter((entry) => entry.index >= after && entry.index < limit);
+  return entries.length ? entries[0].index : limit;
+}
+
 export function writeEntry(path: string, content: string, runtime: Record<string, unknown>, trace: string): string {
   const canonical = canonicalProtectedLogPath(path);
   const policy = policyForPath(canonical);
@@ -323,7 +333,7 @@ export function writeEntry(path: string, content: string, runtime: Record<string
     const traceLine = target === null ? "  - ↪ trace: none (new topic)" : `  - ↪ trace: relates-to ${traceDisplay(target)}`;
     const rendered = `${header}\n${rest ? `${rest}\n` : ""}${traceLine}\n\n`;
     let updated = target ? insertForward(before, oldEntries, target, header) : before;
-    const insertion = oldEntries[0]?.start ?? updated.length;
+    const insertion = workLogInsertion(updated) ?? oldEntries[0]?.start ?? updated.length;
     const after = updated.slice(0, insertion) + rendered + updated.slice(insertion);
     validateMutation(before, after, policy);
     atomicWrite(canonical, after);

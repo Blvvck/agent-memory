@@ -112,6 +112,12 @@ Do not wait until the end. After each meaningful unit of work, write a short ent
 
 `memory.md` records what happened, `learnings.md` a reusable mistake, `patterns.md` a reusable method, and `worldview.md` a change in belief. Substantive work that produces no code still belongs in the scope's `ACTIVITY.md` and the agent's memory. Trivial reads and exploratory commands do not need entries. Verified, shipped work may also belong in `core/portfolio.md`, which stays selective rather than becoming a second activity log.
 
+## Where new entries start
+
+Every protected log has a `## Work Log` section near the top. Add new entries there, newest first. The authored history or reference material below the section stays; it is part of the agent's identity. The writer inserts new entries at that section, not at the top of the file.
+
+`memory.md`, `learnings.md`, and `patterns.md` use the same entry format and the same bidirectional traces. Activity and notification logs use it as well.
+
 ## Every entry follows one format
 
 ```
@@ -125,7 +131,7 @@ Do not wait until the end. After each meaningful unit of work, write a short ent
 
 ## Traces run both ways
 
-Each entry points back to the older entry it relates to, and the older entry gets a forward pointer. That turns a pile of logs into a graph you can walk. When someone asks why a decision was made, start at the decision and follow the trace.
+Each entry points back to the older entry it relates to, and the older entry gets a forward pointer. This applies to every protected log, including learnings and patterns. That turns a pile of logs into a graph you can walk. When someone asks why a decision was made, start at the decision and follow the trace.
 
 ```
 - ↪ trace: relates-to [2026-08-05T14:32:00Z] [project] @Agent [session:cli:ID]: The older entry
@@ -133,7 +139,7 @@ Each entry points back to the older entry it relates to, and the older entry get
 
 ## Protected logs: write through one door
 
-`memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Do not edit them directly. Every write goes through `agent-log`, which validates the entry, takes a lock, and replaces the file atomically. A direct edit is blocked.
+`memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Do not edit them directly. Every write goes through `agent-log`, which validates the entry, takes a lock, replaces the file atomically, and inserts at the file's `## Work Log` section.
 
 ```bash
 agent-log --file .agents/example/brain/memory.md \

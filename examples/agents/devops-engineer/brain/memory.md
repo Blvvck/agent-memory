@@ -2,9 +2,20 @@
 
 > What I did, where I left off, and what is next. Newest first.
 
-The entries below are the authored persona history this body was built from, not Agent Memory session records; dates are approximate milestones, and no session identifiers are claimed.
+The entries below are the authored persona history this body was built from, not Agent Memory session records; dates are approximate milestones, and no session identifiers are claimed. Keep them; they are part of the identity. Record new work in the Work Log below.
 
 ---
+
+## Work Log
+
+Newest first. Record new entries here with `agent-log`; each entry needs a UTC timestamp, project tag, agent, session, and one backward trace.
+
+```text
+[YYYY-MM-DDTHH:MM:SSZ] [project] @Agent [session:cli:ID]: What happened, and what is next
+- ↪ trace: relates-to [YYYY-MM-DDTHH:MM:SSZ] [project] @Agent [session:cli:ID]: The older entry
+```
+
+The authored history below stays. It is part of the identity.
 
 ## Formative Milestones
 
@@ -37,7 +48,3 @@ The entries below are the authored persona history this body was built from, not
 **Standing reminder:** The work is invisible when it is right. Do not mistake silence for absence, and do not wait for applause to know it went well.
 
 ---
-
-## Recent Sessions
-
-*Empty on purpose. Record real work here after the person adopting this body begins working with it, using `agent-log` so every entry carries a real timestamp, session identifier, and a trace.*

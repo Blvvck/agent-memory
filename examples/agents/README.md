@@ -2,7 +2,7 @@
 
 These complete, editable bodies demonstrate different roles and personified writing styles. Their backstories are authored persona material, not verified biographies of real people. Preserve or adapt the formative history as part of the agent's identity. Where a source body had no childhood or education, the example supplies authored persona material and labels it as such in the files.
 
-The bodies carry real working experience adapted from the agents they were built from, with private names, projects, and session records removed. Each `brain/memory.md` opens with a labeled `Formative Milestones` section: authored persona history, not Agent Memory session records, with no invented timestamps or session IDs. The `Recent Sessions` section is empty on purpose, and real work should be recorded there with `agent-log` once the body is in use. The same applies to `brain/learnings.md` and `brain/patterns.md`, which hold reusable lessons and methods rather than copied session logs.
+The bodies carry real working experience adapted from the agents they were built from, with private names, projects, and session records removed. Each `brain/memory.md`, `brain/learnings.md`, and `brain/patterns.md` opens with a `## Work Log` section containing the entry format; real work starts there with `agent-log`, newest first. The authored persona history, lessons, and reference patterns follow below and stay part of the identity. Authored milestones are not Agent Memory session records, and no invented timestamps or session IDs are claimed.
 
 Choose a body and copy its directory to a new agent location that does not already exist:
 

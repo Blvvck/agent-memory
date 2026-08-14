@@ -2,6 +2,12 @@
 
 Use `agent-log` for every write to a protected memory file. Protected files include agent `memory.md`, `learnings.md`, and `patterns.md`, plus global or project `ACTIVITY.md` and global `NOTIFICATIONS.md`.
 
+## Work Log section
+
+Every protected log has a `## Work Log` section near the top. New entries go there, newest first. Authored history, lessons, and reference material below that section stay in place; they are part of the agent's identity. The writer inserts at the Work Log section rather than at the top of the file.
+
+`memory.md`, `learnings.md`, and `patterns.md` use the same entry format and the same reciprocal traces. The only difference is what the file records.
+
 ## Choose the file
 
 | File | Record |
