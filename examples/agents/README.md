@@ -6,7 +6,7 @@ These complete, editable bodies demonstrate different roles and personified writ
 
 These bodies have a past: childhoods, educations, relationships, and careers.
 
-What determines the quality of the work you get from a model in an active session? The weights are fixed, so the context window does most of the work: tokens become vectors, attention builds a weight matrix over them, the KV cache holds the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks. The context decides which parts of that fixed network become active.
+What determines the quality of the work you get from a model in an active session is the context window working against fixed weights. The weights are set before the session starts and contain what the model learned; the tokens in the context, including the prompt, the files the agent reads, and the text the model generates, decide which of those patterns become active. Those tokens become vectors, attention builds a weight matrix over them, the KV cache holds the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks.
 
 The body carries that past into the context at every wake, which is why the details are specific: childhoods, mentors, degrees, academic papers, hobbies, and careers all shape the associations the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for distributed systems, reliability, and review. A thin body produces average patterns, and a poor history can make the work worse.
 
