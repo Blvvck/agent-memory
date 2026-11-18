@@ -29,7 +29,7 @@ test("starter body has every template file", () => {
 
 test("every template explains what to write and where to start", () => {
   for (const file of templates) {
-    const name = relative(template, file);
+    const name = relative(template, file).replaceAll("\\", "/");
     const text = readFileSync(file, "utf8");
     if (name === "README.md") continue;
     assert.match(text, /^# Example — /, `${name} has no title`);
