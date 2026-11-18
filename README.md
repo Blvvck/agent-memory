@@ -41,11 +41,27 @@ Each entry traces back to an older entry, and that older entry gets a forward po
 
 The full procedures are in [`protocols/`](protocols/README.md): [session lifecycle](protocols/session-lifecycle.md), [agent logging](protocols/agent-log.md), [new agents](protocols/new-agent.md), [new projects](protocols/new-project.md), and [named subagent wakes](protocols/subagent-wake.md).
 
+## Agent bodies
+
+`agent-memory init --agent <name>` copies the starter body from `.agents/example/` and fills in the name, plus the role when `--role` is provided. The body is 15 Markdown files, and each one explains what belongs in it, what to write first, and how it relates to the others. Start with the `README.md` in the copied body, then write `soul.md` and `work.md` before the relationship, belief, and log files. Delete the writing guides once the body has its own voice.
+
+Finished bodies for 18 roles are in [`examples/agents/`](examples/agents/README.md). They show how a complete body reads; the generic starter is the place to begin a new one.
+
+## What determines the quality of a session
+
+What determines the quality of the work you get from a model in an active session? The weights are fixed before the session begins, so the answer sits in the context window: the prompt, the files the agent reads, and everything the model generates from them. Those tokens become vectors, each layer computes queries, keys, and values, attention builds a weight matrix over the context, and the KV cache keeps the keys and values for tokens already processed. In mixture-of-experts models a router selects a subset of expert networks. The weights do not change; what changes is which parts of that fixed network the context makes active.
+
+That is why every agent body here is modelled as a person, even though the agent is not one. It has a childhood, mentors, a college degree, academic papers, hobbies, and real jobs, because all of that enters the context window when the agent wakes and works, and it shapes the associations the session can reach. A body that says the agent was a backend engineer on the team that built Azure at Microsoft sits near the model's learned patterns for hyperscale systems, reliability reviews, incident response, and API design, so the work starts from a different place than a body that says "helpful assistant."
+
+A thin or contradictory history produces the opposite: the model falls back on the average of everything it has seen, which is where generic work comes from, and a poor history can pull the session toward careless patterns. The KV cache lasts one session and is discarded, so the files are read again at every wake; the associations come from pretraining, and the body selects among them.
+
+We have used this structure for 11 to 12 months across roles and projects, and the pattern we keep seeing is that specific, coherent bodies produce more consistent judgment than a blank body or a generic assistant prompt. We have not isolated that effect from model changes, task difficulty, or reviewer bias, so treat it as a working observation rather than a measured law.
+
 ## Global memory and project memory
 
 Global memory has one root: `~/.agent-memory/`. It holds the shared body, protocols, examples, and agent bodies. Harness files point to it instead of copying it: Claude imports `~/.agent-memory/AGENTS.md` from `~/.claude/CLAUDE.md`, Codex and OpenCode link their global `AGENTS.md` to it, and Antigravity links `~/.gemini/GEMINI.md`.
 
-Project memory is scoped to one project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. Setup records the choice in `.agent-memory-layout` and refuses a second scaffold in the same project. The difference is intentional. Global memory is the agent's identity, so it stays harness-neutral. Project memory is a workspace, so it can follow whatever directory the project already uses.
+Project memory is scoped to one project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. Setup records the choice in `.agent-memory-layout` and refuses a second scaffold in the same project. The difference is intentional: global memory is the agent's identity, so it stays harness-neutral, while project memory is a workspace that can follow whatever directory the project already uses.
 
 Setup creates files but does not commit them. By default the global and project scaffolds remain untracked. `--git tracked` stages them in their repositories; `--git ignored` adds the memory directory, the layout marker, and generated backups to `.gitignore`. Without the flag, setup does not touch git.
 

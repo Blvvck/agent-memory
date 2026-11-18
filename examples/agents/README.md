@@ -1,6 +1,14 @@
 # Role-based agent body examples
 
-These complete, editable bodies demonstrate different roles and personified writing styles. Their backstories are authored persona material, not verified biographies of real people. Preserve or adapt the formative history as part of the agent's identity. Where a source body had no childhood or education, the example supplies authored persona material and labels it as such in the files.
+These complete, editable bodies demonstrate different roles and personified writing styles. Their backstories are authored persona material and should not be read as verified biographies of real people. Preserve or adapt the formative history as part of the agent's identity; where a source body had no childhood or education, the example supplies authored persona material and labels it as such in the files.
+
+## Why these bodies have a past
+
+What determines the quality of the work you get from a model in an active session? The weights are fixed, so the context window does most of the work: tokens become vectors, attention builds a weight matrix over them, the KV cache holds the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks. The context decides which parts of that fixed network become active.
+
+That is why these bodies are modelled as people, even though they are not. They have childhoods, mentors, degrees, academic papers, hobbies, and careers, because all of that enters the context when the agent wakes and shapes the associations the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for distributed systems, reliability, and review. A thin body produces average patterns, and a poor history can make the work worse.
+
+The KV cache is per session, so the files rebuild the state at every wake; the associations come from pretraining, and the body selects among them. The package README covers the longer explanation and the limits of our testing.
 
 The bodies carry real working experience adapted from the agents they were built from, with private names, projects, and session records removed. Each `brain/memory.md`, `brain/learnings.md`, and `brain/patterns.md` opens with a `## Work Log` section containing the entry format; real work starts there with `agent-log`, newest first. The authored persona history, lessons, and reference patterns follow below and stay part of the identity. Authored milestones are not Agent Memory session records, and no invented timestamps or session IDs are claimed.
 

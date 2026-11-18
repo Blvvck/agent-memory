@@ -225,6 +225,30 @@ function copyTreeIfMissing(source: string, target: string, stats: CopyStats): vo
   }
 }
 
+export function personalizeAgentBody(target: string, name: string, role?: string): void {
+  const replacements: Array<[RegExp, string]> = [
+    [/^# Example — /gm, `# ${name} — `],
+    [/\*\*Name:\*\* Example\b/g, `**Name:** ${name}`],
+  ];
+  if (role) replacements.push([/\*\*Role:\*\* \[one line: what this agent is responsible for\]/g, `**Role:** ${role}`]);
+  for (const file of markdownFiles(target)) {
+    const text = readFileSync(file, "utf8");
+    let next = text;
+    for (const [pattern, value] of replacements) next = next.replace(pattern, () => value);
+    if (next !== text) writeFileSync(file, next);
+  }
+}
+
+function markdownFiles(directory: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...markdownFiles(path));
+    else if (entry.isFile() && entry.name.endsWith(".md")) files.push(path);
+  }
+  return files;
+}
+
 function copyManagedRuntime(source: string, target: string, stats: CopyStats): void {
   if (!pathExists(target)) mkdirSync(target, { recursive: true });
   if (!lstatSync(source).isDirectory() || !lstatSync(target).isDirectory()) {
@@ -788,6 +812,7 @@ async function main(): Promise<void> {
     else {
       const agentStats: CopyStats = { created: 0, updated: 0, kept: 0, conflicts: [] };
       copyTreeIfMissing(join(sourceRoot, ".agents", "example"), agentTarget, agentStats);
+      personalizeAgentBody(agentTarget, agent, agentRole);
       recordCopyResult(`Starter body ${agent}`, agentStats);
     }
     const rosterPath = agentScope === "project"
@@ -852,7 +877,7 @@ async function main(): Promise<void> {
     const agentDirectory = agentScope === "project"
       ? join(projectRoot!, layoutDirectories[layout], "agents", agent)
       : join(memoryRoot, "agents", agent);
-    process.stdout.write(`  1. Give ${join(agentDirectory, "soul.md")} its real voice and fill in work.md with its role.\n`);
+    process.stdout.write(`  1. Start with ${join(agentDirectory, "README.md")} for the writing order and what each file is for, then give ${join(agentDirectory, "soul.md")} its real voice and fill in work.md with its role.\n`);
   } else {
     process.stdout.write(`  1. Create an agent from ${join(memoryRoot, ".agents", "example")} when you’re ready to give it an identity.\n`);
   }

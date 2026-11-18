@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/mark-bins.mjs",
-    "test": "npm run build && node --test tests/protected-log-guard.test.cjs tests/work-log.test.cjs",
+    "test": "npm run build && node --test tests/protected-log-guard.test.cjs tests/work-log.test.cjs tests/scaffold.test.cjs",
     "postinstall": "node postinstall.mjs",
     "prepack": "npm run build"
   },

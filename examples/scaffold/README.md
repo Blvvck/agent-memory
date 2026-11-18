@@ -18,7 +18,7 @@ The global directory is `~/.agent-memory/` by default. Its structure can include
 └── LEADERBOARD.md        # Optional aggregate team scores
 ```
 
-`agent-memory init` installs the required procedures into `~/.agent-memory/protocols/`. It also creates the global activity and notification files, and any optional global team files you select. Add one agent body per directory under `agents/`, starting from the generic `.agents/example/` or choosing a role-based body from [`examples/agents/`](../agents/README.md). Optional procedures are in `examples/protocols/`.
+`agent-memory init` installs the required procedures into `~/.agent-memory/protocols/`. It also creates the global activity and notification files, and any optional global team files you select. Add one agent body per directory under `agents/`, starting from the generic [`.agents/example/`](../../.agents/example/README.md) or choosing a role-based body from [`examples/agents/`](../agents/README.md). The generic template explains what to write in each file, in what order, and where new log entries start. Optional procedures are in `examples/protocols/`.
 
 ## Project defaults
 

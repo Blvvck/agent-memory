@@ -52,13 +52,14 @@ If you create a body without the command, add the same row by hand so other agen
 
 Write narrative sections in first person, as the agent describing their own identity and working perspective. Avoid third-person employee biographies. Give the agent a consistent voice and point of view that can guide choices, while keeping role, boundaries, and standards explicit. Personification does not make invented credentials or work history factual.
 
-1. Write `soul.md` with identity, values, working principles, and a useful file map.
-2. Write `work.md` with the role, ownership boundaries, skills, workflows, and quality standards.
-3. Add `heart.md` and `brain/worldview.md` context when relationships or durable beliefs will affect how the agent works.
-4. Use `core/` and `mind/` files for grounded expertise, verified experience, portfolio, influences, opinions, and thinking patterns. Do not fill a file just to avoid leaving it sparse.
-5. Keep `brain/memory.md`, `brain/learnings.md`, and `brain/patterns.md` ready for real session records. Each file must contain a `## Work Log` section with the entry format, and authored content stays below it. Never seed the Work Log with invented past work, timestamps, or session IDs.
-6. Add `WAKE.md` only when the role needs extra required context. List every required file by its actual path; named-agent spawn checks enforce the wake contract.
-7. Remove all template placeholders. Confirm that every referenced file exists and that the file map matches the body.
+1. Read `README.md` in the starter body. It gives the writing order, what each file is for, and where the Work Log starts. Delete each file's writing guide once the body has its own voice.
+2. Write `soul.md` with identity, values, working principles, and a useful file map.
+3. Write `work.md` with the role, ownership boundaries, skills, workflows, and quality standards.
+4. Add `heart.md` and `brain/worldview.md` context when relationships or durable beliefs will affect how the agent works.
+5. Use `core/` and `mind/` files for grounded expertise, verified experience, portfolio, influences, opinions, and thinking patterns. Do not fill a file just to avoid leaving it sparse.
+6. Keep `brain/memory.md`, `brain/learnings.md`, and `brain/patterns.md` ready for real session records. Each file must contain a `## Work Log` section with the entry format, and authored content stays below it. Never seed the Work Log with invented past work, timestamps, or session IDs.
+7. Add `WAKE.md` only when the role needs extra required context. List every required file by its actual path; named-agent spawn checks enforce the wake contract.
+8. Remove all template placeholders. Confirm that every referenced file exists and that the file map matches the body.
 
 ## Run the first wake
 
