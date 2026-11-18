@@ -33,6 +33,8 @@ Every project can have a `.agent-memory/` directory with these three files at it
 
 `agent-memory init` creates these project files. Agents record project work in that project's `ACTIVITY.md`; cross-project or global work belongs in `~/.agent-memory/ACTIVITY.md`.
 
+`ACTIVITY.md` and `NOTIFICATIONS.md` are protected logs. They open with a `## Work Log`, carry the entry format, and are written through `agent-log`. The other files are working documents: each template explains what belongs in it, where to start writing, and what a useful entry looks like, and none of them require the protected writer.
+
 ## Optional project modules
 
 Copy `project-work/` into the selected project memory directory only if you want structured planning. See the optional [project planning](../protocols/project-planning.md) and [sprint lifecycle](../protocols/sprint-lifecycle.md) procedures for how to use these files:

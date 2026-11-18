@@ -51,6 +51,8 @@ Every named agent available in this scope is listed here. `agent-memory init --a
 
 Project-scoped agents are listed in `agents/README.md` inside the project's memory directory.
 
+Where the harness supports the wake hook, a message that starts with `Hey <name>`, `Hi <name>`, `Yo <name>`, `@<name>`, or `<name>,` wakes that body. An explicit `@<name>` works anywhere in a message, and phrases such as `ask <name> to review this` or `wake <name>` do the same. A bare name in the middle of a sentence does not trigger a wake. In other harnesses, delegate through the harness's subagent support and pass the body paths in `protocols/subagent-wake.md`.
+
 <!-- agent-memory:agents:start -->
 | Agent | Role | Scope | Body |
 |-------|------|-------|------|

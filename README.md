@@ -2,9 +2,9 @@
 
 Persistent memory and a reusable body for AI agents.
 
-An agent starts every session blank. This package gives it a body of Markdown files and one loop: wake, work, write down what happened. The next session reads those files and continues instead of starting over. Because the memory is plain files, you can read it and fix it directly.
+An agent starts every session blank. This package gives it a body of Markdown files and a loop that carries context across sessions and across harnesses: wake, work, record what happened, and link the record to what came before. The next session reads those files, follows the links to the decisions behind them, and continues instead of starting over.
 
-Works with Claude Code, Codex, OpenCode, Antigravity, and Cursor.
+The memory is plain Markdown, so you can read it, diff it, and fix it. The same files work under Claude Code, Codex, OpenCode, Antigravity, and Cursor, so a decision made in one harness is there when you open another. The result is an agent that can pick up a project after a week, explain why a decision was made, and carry the same context from one tool to the next without a manual handoff.
 
 ## Quick start
 
@@ -35,17 +35,55 @@ Entries follow one format so they stay sortable and attributable:
 [YYYY-MM-DDTHH:MM:SSZ] [project] @Agent [session:cli:ID]: What happened, and what is next
 ```
 
-Each entry traces back to an older entry, and that older entry gets a forward pointer. A decision can be followed backward to the reasoning that produced it.
-
 `memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Write to them through `agent-log`, which validates the metadata, takes a lock, and replaces the file atomically. Direct edits are blocked, because a half-written memory file is worse than no memory file. Every protected log has a `## Work Log` section near the top; new entries go there, and authored history or reference material below stays.
 
 The full procedures are in [`protocols/`](protocols/README.md): [session lifecycle](protocols/session-lifecycle.md), [agent logging](protocols/agent-log.md), [new agents](protocols/new-agent.md), [new projects](protocols/new-project.md), and [named subagent wakes](protocols/subagent-wake.md).
+
+## Traces
+
+Each entry points back to the older entry it continues, and the writer adds a forward pointer to that older entry. A backward trace runs from the newer note to the older note it relates to, so it records the predecessor the new work was written against. A forward trace runs the other way, from the older note to the newer note that referenced it, so it records that later work returned to that note. When the link is causal, the pair shows the reasoning behind a decision and the work that followed; when it is a correction or a revisit, the pair still records that the two notes belong together.
+
+```text
+[2026-08-05T14:32:00Z] [api] @Luna [session:claude:abc12345]: Moved the session index to SQLite
+- ↪ trace: relates-to [2026-08-04T09:10:00Z] [api] @Luna [session:claude:def67890]: Session search read every transcript
+
+[2026-08-04T09:10:00Z] [api] @Luna [session:claude:def67890]: Session search read every transcript
+- ↪ trace-forward: [2026-08-05T14:32:00Z] [api] @Luna [session:claude:abc12345]: Moved the session index to SQLite
+```
+
+An entry with many forward traces is one later work kept returning to, which is a useful signal that it holds a decision or fact that still matters. An entry with none has not been connected yet or was a dead end. The tool does not rank entries by trace count; the graph is evidence rather than a score, and you can follow it backward from a decision to the earlier notes that informed it. `trace-search <file> <keyword...>` finds the older entries worth linking to before you write.
 
 ## Agent bodies
 
 `agent-memory init --agent <name>` copies the starter body from `.agents/example/` and fills in the name, plus the role when `--role` is provided. The body is 15 Markdown files, and each one explains what belongs in it, what to write first, and how it relates to the others. Start with the `README.md` in the copied body, then write `soul.md` and `work.md` before the relationship, belief, and log files. Delete the writing guides once the body has its own voice.
 
 Finished bodies for 18 roles are in [`examples/agents/`](examples/agents/README.md). They show how a complete body reads; the generic starter is the place to begin a new one.
+
+### The body at a glance
+
+```text
+agents/<name>/
+├── soul.md            who it is: voice, values, formative history
+├── work.md            what it does: role, boundaries, workflows, commands
+├── heart.md           who it works with and what they need
+├── brain/
+│   ├── worldview.md   beliefs that change decisions
+│   ├── memory.md      session log: what happened, what is next
+│   ├── learnings.md   mistakes, causes, corrections
+│   └── patterns.md    methods that worked
+├── core/
+│   ├── expertise.md   what it can do without research
+│   ├── experience.md  how it got here
+│   ├── portfolio.md   verified work it shipped
+│   └── credentials.md proof it can be trusted on a topic
+└── mind/
+    ├── patterns.md    how it reasons when no method is obvious
+    ├── opinions.md    where it stands on contested questions
+    ├── influences.md  what shaped its thinking
+    └── questions.md   what it asks before acting
+```
+
+Each file answers a different question, so the agent gets identity, role, relationships, beliefs, session history, corrections, methods, evidence, and judgment in the same context. A single prompt gives the model one instruction; this body gives it a consistent standpoint from which to interpret the work.
 
 ## Why the history matters
 
@@ -63,9 +101,17 @@ We have used this structure for 11 to 12 months across roles and projects, and t
 
 Global memory has one root: `~/.agent-memory/`. It holds the shared body, protocols, examples, and agent bodies. Harness files point to it instead of copying it: Claude imports `~/.agent-memory/AGENTS.md` from `~/.claude/CLAUDE.md`, Codex and OpenCode link their global `AGENTS.md` to it, and Antigravity links `~/.gemini/GEMINI.md`.
 
+That shared root is what makes several harnesses useful together. When Claude Code and Codex point at the same memory, work recorded in one is in the files the other reads at its next wake, and the reverse. The handoff is not a live session bridge; it is the same memory both harnesses read and write, which gives you one place for context even when you switch tools in the middle of a project.
+
 Project memory is scoped to one project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. Setup records the choice in `.agent-memory-layout` and refuses a second scaffold in the same project. The difference is intentional: global memory is the agent's identity, so it stays harness-neutral, while project memory is a workspace that can follow whatever directory the project already uses.
 
 Setup creates files but does not commit them. By default the global and project scaffolds remain untracked. `--git tracked` stages them in their repositories; `--git ignored` adds the memory directory, the layout marker, and generated backups to `.gitignore`. Without the flag, setup does not touch git.
+
+## Named agents
+
+`agent-memory init --agent <name>` creates a body and adds it to the roster in `AGENTS.md`. In Claude Code, a message that starts with `Hey <name>`, `Hi <name>`, `Yo <name>`, `@<name>`, or `<name>,` triggers the wake hook, which injects the body files the session must read before responding. An explicit `@<name>` works anywhere in a message, and phrases such as `ask <name> to review this` or `wake <name>` trigger the same wake. A bare name in the middle of a sentence does not, which avoids waking an agent because its name appeared in passing.
+
+A project-scoped body with the same name overrides the shared body for that project. In harnesses without the wake hook, delegate through the harness's subagent support and pass the body paths described in [`protocols/subagent-wake.md`](protocols/subagent-wake.md). The roster in `AGENTS.md` lists the names available in the scope.
 
 ## Commands
 

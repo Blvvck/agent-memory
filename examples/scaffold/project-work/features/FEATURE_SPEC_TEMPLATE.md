@@ -1,12 +1,20 @@
 # [Feature Name]
 
+## How to use this template
+
+Copy this file into `features/<feature>/spec.md`, replace every bracketed line, and delete the sections that do not apply. Keep each acceptance criterion observable, and link the feature from the sprint or backlog that owns it.
+
 ## Summary
+
+**Start here.** State the problem and the outcome before the requirements.
 
 - **Problem:** [Who has what problem?]
 - **Outcome:** [What becomes possible when this ships?]
 - **Success measure:** [How will the team observe that it worked?]
 - **Status:** Draft
 - **Owner:** [One accountable person or agent]
+
+> **Example:** A support lead cannot tell which memory file holds a decision, so every handoff reopens the same search. Trace-aware search should let a new session find that decision in under a minute, measured across five handoffs that do not repeat the search.
 
 ## Scope
 

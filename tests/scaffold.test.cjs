@@ -55,6 +55,40 @@ test("every protected log follows the Work Log contract", () => {
   assert.match(readFileSync(join(template, "brain/memory.md"), "utf8"), /Work Log below/);
 });
 
+test("project and global scaffolds explain where to write", () => {
+  const scaffold = join(root, "examples", "scaffold");
+  const documents = [
+    "global/ACTIVITY.md",
+    "project/ACTIVITY.md",
+    "global/NOTIFICATIONS.md",
+    "global/LOUNGE.md",
+    "global/TASKS.md",
+    "global/LEADERBOARD.md",
+    "project/CONTEXT.md",
+    "project/IDEAS.md",
+    "project-work/SPRINT.md",
+    "project-work/BACKLOG.md",
+    "project-work/features/FEATURE_SPEC_TEMPLATE.md",
+    "project-work/features/README.md",
+    "project-team/LOUNGE.md",
+    "project-team/LEADERBOARD.md",
+    "project/skills/README.md",
+    "global/skills/README.md",
+  ];
+  for (const name of documents) {
+    const text = readFileSync(join(scaffold, name), "utf8");
+    assert.match(text, /## How to write|## How to use/, `${name} has no writing guide`);
+    assert.match(text.toLowerCase(), /start here/, `${name} has no start marker`);
+    assert.match(text.toLowerCase(), /example/, `${name} has no example`);
+  }
+  for (const name of ["global/ACTIVITY.md", "project/ACTIVITY.md", "global/NOTIFICATIONS.md"]) {
+    const text = readFileSync(join(scaffold, name), "utf8");
+    assert.equal(text.split("## Work Log").length - 1, 1, `${name} must have one Work Log`);
+    assert.match(text, /YYYY-MM-DDTHH:MM:SSZ/, `${name} has no entry format`);
+    assert.match(text, /Entries start here\./, `${name} has no entry start marker`);
+  }
+});
+
 test("the writer inserts at the starter Work Log", () => {
   const target = mkdtempSync(join(tmpdir(), "agent-log-"));
   try {

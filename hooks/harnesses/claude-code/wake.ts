@@ -36,6 +36,8 @@ function detectAgentWake(message: string, cwd: string): AgentBody | null {
       new RegExp(`^yo\\s+@?${escapeRegex(key)}\\b`),
       new RegExp(`^@${escapeRegex(key)}\\b`),
       new RegExp(`^${escapeRegex(key)},`),
+      new RegExp(`(?:^|\\s)@${escapeRegex(key)}\\b`),
+      new RegExp(`\\b(?:hey|hi|yo|ask|call|wake)\\s+@?${escapeRegex(key)}\\b`),
     ];
     if (patterns.some((pattern) => pattern.test(lower))) return agent;
   }
