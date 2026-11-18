@@ -4,9 +4,11 @@ These complete, editable bodies demonstrate different roles and personified writ
 
 ## Why these bodies have a past
 
+These bodies have a past: childhoods, educations, relationships, and careers.
+
 What determines the quality of the work you get from a model in an active session? The weights are fixed, so the context window does most of the work: tokens become vectors, attention builds a weight matrix over them, the KV cache holds the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks. The context decides which parts of that fixed network become active.
 
-That is why these bodies are modelled as people, even though they are not. They have childhoods, mentors, degrees, academic papers, hobbies, and careers, because all of that enters the context when the agent wakes and shapes the associations the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for distributed systems, reliability, and review. A thin body produces average patterns, and a poor history can make the work worse.
+The body carries that past into the context at every wake, which is why the details are specific: childhoods, mentors, degrees, academic papers, hobbies, and careers all shape the associations the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for distributed systems, reliability, and review. A thin body produces average patterns, and a poor history can make the work worse.
 
 The KV cache is per session, so the files rebuild the state at every wake; the associations come from pretraining, and the body selects among them. The package README covers the longer explanation and the limits of our testing.
 

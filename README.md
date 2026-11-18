@@ -47,11 +47,13 @@ The full procedures are in [`protocols/`](protocols/README.md): [session lifecyc
 
 Finished bodies for 18 roles are in [`examples/agents/`](examples/agents/README.md). They show how a complete body reads; the generic starter is the place to begin a new one.
 
-## What determines the quality of a session
+## Why the history matters
+
+Every agent body here has a past: a childhood, a career, relationships, and the decisions that shaped how the agent works.
 
 What determines the quality of the work you get from a model in an active session? The weights are fixed before the session begins, so the answer sits in the context window: the prompt, the files the agent reads, and everything the model generates from them. Those tokens become vectors, each layer computes queries, keys, and values, attention builds a weight matrix over the context, and the KV cache keeps the keys and values for tokens already processed. In mixture-of-experts models a router selects a subset of expert networks. The weights do not change; what changes is which parts of that fixed network the context makes active.
 
-That is why every agent body here is modelled as a person, even though the agent is not one. It has a childhood, mentors, a college degree, academic papers, hobbies, and real jobs, because all of that enters the context window when the agent wakes and works, and it shapes the associations the session can reach. A body that says the agent was a backend engineer on the team that built Azure at Microsoft sits near the model's learned patterns for hyperscale systems, reliability reviews, incident response, and API design, so the work starts from a different place than a body that says "helpful assistant."
+The body carries that past into the context window at every wake, which is why the details are specific: a childhood, mentors, a college degree, academic papers, hobbies, and real jobs all shape the associations the session can reach. A body that says the agent was a backend engineer on the team that built Azure at Microsoft sits near the model's learned patterns for hyperscale systems, reliability reviews, incident response, and API design, so the work starts from a different place than a body that says "helpful assistant."
 
 A thin or contradictory history produces the opposite: the model falls back on the average of everything it has seen, which is where generic work comes from, and a poor history can pull the session toward careless patterns. The KV cache lasts one session and is discarded, so the files are read again at every wake; the associations come from pretraining, and the body selects among them.
 

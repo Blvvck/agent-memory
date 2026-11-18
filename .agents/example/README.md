@@ -4,9 +4,11 @@ This is the blank body that `agent-memory init --agent <name>` copies into `~/.a
 
 ## Why the history matters
 
+Every body built from this starter has a past: a childhood, an education, relationships, and a career.
+
 What determines the quality of the work you get from a model in an active session? The weights are fixed before the session starts, so the context window does most of the work: its tokens become vectors, attention builds a weight matrix over them, the KV cache keeps the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks. The context decides which parts of that fixed network become active.
 
-That is why this starter body is modelled as a person, even though the agent is not one. Childhood, mentors, a degree, academic papers, hobbies, and real work experience all enter the context at wake and shape what the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for hyperscale systems, reliability reviews, and API design. A thin body leaves the model with the average of everything it has seen, and a poor history can pull the work toward careless patterns.
+The body carries that past into the context at every wake, which is why the details are specific: childhood, mentors, a degree, academic papers, hobbies, and work experience all shape what the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for hyperscale systems, reliability reviews, and API design. A thin body leaves the model with the average of everything it has seen, and a poor history can pull the work toward careless patterns.
 
 The KV cache lasts one session and is discarded, so each wake rebuilds the state from these files; the associations come from pretraining, and the body selects among them.
 
