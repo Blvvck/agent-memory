@@ -159,6 +159,23 @@ test("a profile that already holds the import marker is not duplicated", () => {
   }
 });
 
+test("concurrent imports of one source append it once behind a dead lock", async () => {
+  const { home, source } = setup();
+  const lock = join(home, ".agent-memory", "human", ".import.lock");
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    mkdirSync(lock, { recursive: true });
+    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: 2_147_483_647 }), "utf8");
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(lock, old, old);
+    const codes = await Promise.all(Array.from({ length: 8 }, () => spawnAsync(home, ["import", "--from", source, "--yes"])));
+    assert.ok(codes.every((code) => code === 0), `exit codes ${codes.join(",")}`);
+    assert.equal(readFileSync(destination, "utf8").match(/I prefer short answers/g).length, 1);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("concurrent imports of one source append it once", async () => {
   const { home, source } = setup();
   const destination = join(home, ".agent-memory", "human", "profile.md");

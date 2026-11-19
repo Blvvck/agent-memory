@@ -83,33 +83,48 @@ function reclaim(lock: string): void {
   rmSync(trashed, { recursive: true, force: true });
 }
 
-function withLock<T>(run: () => T): T {
-  const lock = join(humanRoot(), ".import.lock");
-  mkdirSync(humanRoot(), { recursive: true });
-  let held = false;
-  for (let attempt = 0; attempt < 50; attempt++) {
-    try {
-      mkdirSync(lock);
-      writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-      held = true;
-      break;
-    } catch {
-      if (ownerAlive(lock)) {
-        if (attempt === 49) fail("Another import is running. Try again in a moment.");
-        sleepSync(100);
-        continue;
-      }
-      let age = 0;
-      try { age = Date.now() - statSync(lock).mtimeMs; }
-      catch { continue; }
-      if (age > 5_000) { reclaim(lock); continue; }
-      if (attempt === 49) fail("Another import is running. Try again in a moment.");
-      sleepSync(100);
-    }
+function claim(path: string): boolean {
+  try {
+    mkdirSync(path);
+    writeFileSync(join(path, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+    return true;
+  } catch {
+    return false;
   }
-  if (!held) fail("Another import is running. Try again in a moment.");
-  try { return run(); }
-  finally { try { rmSync(lock, { recursive: true, force: true }); } catch { /* best effort */ } }
+}
+
+function reclaimIfStale(path: string): void {
+  if (ownerAlive(path)) return;
+  let age = 0;
+  try { age = Date.now() - statSync(path).mtimeMs; }
+  catch { return; }
+  if (age > 5_000) reclaim(path);
+}
+
+function withLock<T>(run: () => T): T {
+  mkdirSync(humanRoot(), { recursive: true });
+  const lock = join(humanRoot(), ".import.lock");
+  const guard = join(humanRoot(), ".import.guard");
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (!claim(guard)) {
+      reclaimIfStale(guard);
+      sleepSync(50);
+      continue;
+    }
+    let held = false;
+    try {
+      if (existsSync(lock)) reclaimIfStale(lock);
+      if (!existsSync(lock)) held = claim(lock);
+    } finally {
+      try { rmSync(guard, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+    if (held) {
+      try { return run(); }
+      finally { try { rmSync(lock, { recursive: true, force: true }); } catch { /* best effort */ } }
+    }
+    sleepSync(100);
+  }
+  fail("Another import is running. Try again in a moment.");
 }
 
 function truncate(content: string): string {
