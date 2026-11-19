@@ -6,9 +6,12 @@ import { dispatchWithSource } from "../../core/dispatch";
 const toolMappings: Record<string, string> = {
   run_command: "Bash",
   write_to_file: "Write",
+  write_file: "Write",
+  edit_file: "Edit",
   replace_file_content: "Edit",
   multi_replace_file_content: "Edit",
   view_file: "Read",
+  read_file: "Read",
   grep_search: "Grep",
   find_by_name: "Glob",
   invoke_subagent: "Agent",

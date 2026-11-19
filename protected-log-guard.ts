@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, isAbsolute, resolve } from "node:path";
 import { canonicalProtectedLogPath, ProtectedLogError } from "./protected-log";
 
@@ -156,4 +156,14 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
     }
   }
   return `Direct mutation of protected agent logs is blocked: ${protectedFiles.join(", ")}. Use the installed agent-log writer.`;
+}
+
+if (require.main === module) {
+  try {
+    const payload = JSON.parse(readFileSync(0, "utf8")) as Record<string, unknown>;
+    const reason = guardPayload(payload);
+    if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
+  } catch {
+    process.exitCode = 0;
+  }
 }

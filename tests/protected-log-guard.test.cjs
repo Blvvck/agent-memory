@@ -1,6 +1,11 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { spawnSync } = require("node:child_process");
+const { join } = require("node:path");
 const { guardPayload } = require("../dist/protected-log-guard.js");
+
+const script = join(__dirname, "..", "dist", "protected-log-guard.js");
+const cwd = "/tmp/ag-guard-project";
 
 const memoryPath = ".agent-memory/agents/example/brain/memory.md";
 
@@ -11,6 +16,24 @@ function bashPayload(command) {
     tool_input: { command, cwd: "/tmp/project" },
   };
 }
+
+test("the guard blocks as a subprocess, which is how non-Claude harnesses call it", () => {
+  const blocked = spawnSync(process.execPath, [script], {
+    input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path: join(cwd, memoryPath) }, cwd }),
+    encoding: "utf8",
+  });
+  assert.equal(blocked.status, 0);
+  const parsed = JSON.parse(blocked.stdout.trim());
+  assert.equal(parsed.decision, "block");
+  assert.match(parsed.reason, /protected|routing/i);
+
+  const allowed = spawnSync(process.execPath, [script], {
+    input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Read", tool_input: { file_path: join(cwd, memoryPath) }, cwd }),
+    encoding: "utf8",
+  });
+  assert.equal(allowed.status, 0);
+  assert.equal(allowed.stdout.trim(), "");
+});
 
 test("index staging and read-only git inspection may name protected logs", () => {
   const commands = [

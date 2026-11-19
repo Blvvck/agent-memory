@@ -83,6 +83,26 @@ test("Antigravity injects the wake protocol on the first invocation", () => {
   }
 });
 
+test("Antigravity blocks a direct write to a protected log", () => {
+  const { home, project } = makeHome();
+  try {
+    const target = join(project, ".agent-memory", "agents", "Proof", "brain", "memory.md");
+    mkdirSync(join(project, ".agent-memory", "agents", "Proof", "brain"), { recursive: true });
+    writeFileSync(target, "# memory\n\n## Work Log\n\nEntries start here.\n", "utf8");
+    const output = runDispatch("antigravity", {
+      hook_event_name: "PreToolUse",
+      conversationId: "antigravity-guard",
+      workspacePaths: [project],
+      toolCall: { name: "write_file", args: { TargetFile: target, CodeContent: "overwrite" } },
+    }, home);
+    const parsed = JSON.parse(output);
+    assert.equal(parsed.decision, "deny");
+    assert.match(parsed.reason, /protected/i);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("OpenCode plugin exports the module shape OpenCode loads", () => {
   const plugin = require("../dist/hooks/harnesses/opencode/plugin.js");
   assert.equal(plugin.default.id, "agent-memory");
