@@ -334,12 +334,6 @@ Agent Memory supports five harnesses today, and the table below shows the rest o
 | Claude Duet | Anthropic cloud, connectors | MCP | later |
 | Instinct | its own environment | CLI where available, otherwise MCP | later |
 
-| Work | What it unlocks | Status |
-|---|---|---|
-| Memory MCP server | hosted agents with no shell or shared disk | planned |
-| Project-scoped cloud setup | agents that only see the repository | planned |
-| Sync API | one record across laptop, VM, and hosted agent | later |
-
 A harness moves from planned to supported when its adapter is written against the shared dispatcher, its real payloads are recorded in a test, and it has run once against the live harness.
 
 ## Teams
