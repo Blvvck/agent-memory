@@ -1,8 +1,6 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-
-const knownFlags = new Set(["--from", "--dry-run", "--yes"]);
 
 function candidates(): string[] {
   const home = homedir();
@@ -46,11 +44,15 @@ function canonical(path: string): string {
 }
 
 function readManifest(): Record<string, string> {
+  let text: string;
+  try { text = readFileSync(manifestPath(), "utf8"); }
+  catch { return {}; }
   try {
-    const value = JSON.parse(readFileSync(manifestPath(), "utf8")) as { sources?: Record<string, string> };
-    return value && typeof value.sources === "object" && value.sources ? value.sources : {};
+    const value = JSON.parse(text) as { sources?: unknown };
+    if (!value || typeof value.sources !== "object" || value.sources === null || Array.isArray(value.sources)) throw new Error("invalid");
+    return value.sources as Record<string, string>;
   } catch {
-    return {};
+    fail(`Cannot read ${manifestPath()}. Fix or remove it before importing; nothing was changed.`);
   }
 }
 
@@ -68,7 +70,7 @@ function sleepSync(milliseconds: number): void {
 function withLock<T>(run: () => T): T {
   const queue = join(humanRoot(), ".import-queue");
   mkdirSync(queue, { recursive: true });
-  const name = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  const name = `${Date.now()}-${String(process.pid).padStart(8, "0")}-${Math.random().toString(36).slice(2, 8)}`;
   const mine = join(queue, name);
   mkdirSync(mine);
   try {
@@ -132,11 +134,21 @@ export function runHuman(args: string[]): void {
     return;
   }
 
+  const contents = new Map<string, string>();
+  for (const source of sources) {
+    const path = canonical(source);
+    try {
+      if (!statSync(path).isFile()) fail(`${path} is not a file.`);
+      contents.set(path, truncate(readFileSync(path, "utf8").trim()));
+    } catch (error) {
+      if (error instanceof Error && error.message.endsWith("is not a file.")) throw error;
+      fail(`Cannot read ${path}. Nothing was changed.`);
+    }
+  }
+
   const destination = join(humanRoot(), "profile.md");
-  const plan = withLock(() => {
-    const imported = readManifest();
-    return sources.map(canonical).filter((path) => !imported[path]);
-  });
+  const imported = readManifest();
+  const plan = [...contents.keys()].filter((path) => !imported[path]);
 
   if (!plan.length) {
     process.stdout.write(`Already imported into ${destination}:\n${sources.map((path) => `  ${path}`).join("\n")}\n`);
@@ -152,25 +164,28 @@ export function runHuman(args: string[]): void {
 
   const date = new Date().toISOString().slice(0, 10);
   withLock(() => {
-    const imported = readManifest();
-    const pending = plan.filter((path) => !imported[path]);
+    const recorded = readManifest();
+    const pending = plan.filter((path) => !recorded[path]);
     if (!pending.length) return;
-    if (!existsSync(destination)) {
-      writeFileSync(destination, "# Human — Profile\n\nStable facts about the person this agent works with.\n", "utf8");
-    }
+    let profile = existsSync(destination) ? readFileSync(destination, "utf8") : "# Human — Profile\n\nStable facts about the person this agent works with.\n";
     for (const path of pending) {
       const marker = `<!-- imported from ${path} on `;
-      const current = existsSync(destination) ? readFileSync(destination, "utf8") : "";
-      if (current.includes(marker)) {
-        imported[path] = date;
+      if (profile.includes(marker)) {
+        recorded[path] = date;
         process.stdout.write(`Already present in the profile: ${path}\n`);
         continue;
       }
-      const content = truncate(readFileSync(path, "utf8").trim());
-      appendFileSync(destination, `\n\n## Imported from ${path}\n\n${marker}${date} -->\n\n${content}\n`, "utf8");
-      imported[path] = date;
+      profile = insertNearTop(profile, `\n## Imported from ${path}\n\n${marker}${date} -->\n\n${contents.get(path) ?? ""}\n`);
+      recorded[path] = date;
       process.stdout.write(`Imported ${path}\n`);
     }
-    writeManifest(imported);
+    writeFileSync(destination, profile, "utf8");
+    writeManifest(recorded);
   });
+}
+
+function insertNearTop(profile: string, section: string): string {
+  const firstBreak = profile.indexOf("\n");
+  if (!profile.startsWith("# ") || firstBreak < 0) return `${profile.trimEnd()}\n${section}`;
+  return `${profile.slice(0, firstBreak)}\n${section}${profile.slice(firstBreak)}`;
 }

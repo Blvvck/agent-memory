@@ -45,7 +45,7 @@ test("Codex injects the wake protocol on a prompt", () => {
     const parsed = JSON.parse(output);
     assert.match(parsed.hookSpecificOutput.additionalContext, /\[WAKE PROTOCOL for Luna\]/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -62,7 +62,7 @@ test("Cursor surfaces the wake protocol on a submitted prompt", () => {
     assert.equal(parsed.continue, true);
     assert.match(parsed.user_message, /\[WAKE PROTOCOL for Luna\]/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -79,7 +79,7 @@ test("Antigravity injects the wake protocol on the first invocation", () => {
     const injected = parsed.injectSteps.map((step) => step.ephemeralMessage).join("\n");
     assert.match(injected, /\[WAKE PROTOCOL for Luna\]/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -99,7 +99,7 @@ test("Antigravity blocks a direct write to a protected log", () => {
     assert.equal(parsed.decision, "deny");
     assert.match(parsed.reason, /protected/i);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -118,7 +118,7 @@ test("creating a new human file returns the check-first reminder", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(JSON.parse(result.stdout).join("\n"), /check whether the fact fits/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -150,7 +150,7 @@ test("OpenCode plugin callbacks inject wake context and close on deletion", () =
       .join("\n");
     assert.match(events, /"source":"opencode"[^\n]*"event":"SessionEnd"/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });
 
@@ -175,6 +175,6 @@ test("OpenCode returns the wake protocol for the prompt hook", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(JSON.parse(result.stdout).contexts.join("\n"), /\[WAKE PROTOCOL for Luna\]/);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   }
 });

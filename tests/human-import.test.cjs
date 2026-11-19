@@ -97,6 +97,62 @@ test("--from without a value fails instead of importing a discovered file", () =
   }
 });
 
+test("planning leaves nothing under the human directory", () => {
+  const { home, source } = setup();
+  try {
+    const plain = run(home, ["import", "--from", source]);
+    assert.equal(plain.status, 0);
+    const dry = run(home, ["import", "--from", source, "--dry-run"]);
+    assert.equal(dry.status, 0);
+    assert.ok(!existsSync(join(home, ".agent-memory", "human")), "human directory was created during planning");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a corrupt manifest fails without overwriting it", () => {
+  const { home, source } = setup();
+  const human = join(home, ".agent-memory", "human");
+  const manifest = join(human, "imports.json");
+  const destination = join(human, "profile.md");
+  try {
+    mkdirSync(human, { recursive: true });
+    writeFileSync(manifest, "{ not json", "utf8");
+    const result = run(home, ["import", "--from", source, "--yes"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Cannot read/);
+    assert.equal(readFileSync(manifest, "utf8"), "{ not json");
+    assert.ok(!existsSync(destination));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("a directory source fails before the profile is created", () => {
+  const { home } = setup();
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    const result = run(home, ["import", "--from", home, "--yes"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /not a file|Cannot read/);
+    assert.ok(!existsSync(destination));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("imported facts land inside the wake slice", () => {
+  const { home, source } = setup();
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    assert.equal(run(home, ["import", "--from", source, "--yes"]).status, 0);
+    const firstThirty = readFileSync(destination, "utf8").split("\n").slice(0, 30).join("\n");
+    assert.match(firstThirty, /I prefer short answers/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("import writes nothing without --yes", () => {
   const { home, source } = setup();
   const destination = join(home, ".agent-memory", "human", "profile.md");
