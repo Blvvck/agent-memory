@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { projectMemoryDirectory, projectMemoryRoot } from "../../memory-paths";
 
 const agentsDirectory = join(homedir(), ".agent-memory", "agents");
@@ -25,8 +25,21 @@ function discoverAgents(cwd: string): Map<string, AgentBody> {
   return agents;
 }
 
+function canonicalPath(path: string): string {
+  let current = resolve(path);
+  const missing: string[] = [];
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) return resolve(path);
+    missing.unshift(basename(current));
+    current = parent;
+  }
+  try { return join(realpathSync(current), ...missing); }
+  catch { return resolve(path); }
+}
+
 function inside(root: string, path: string): boolean {
-  const rel = relative(root, path);
+  const rel = relative(canonicalPath(root), canonicalPath(path));
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 

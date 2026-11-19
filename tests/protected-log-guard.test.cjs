@@ -51,8 +51,17 @@ test("only the installed writer is exempt, and never with a redirect", () => {
     writeFileSync(fakeNode, "process.exit(0)\n");
     assert.match(run(`node ${fakeNode} --file ${target}`), /Direct shell mutation/);
 
+    const packed = join(dir, "@blvvck", "agent-memory", "dist");
+    mkdirSync(packed, { recursive: true });
+    const shaped = join(packed, "agent-log.js");
+    writeFileSync(shaped, "process.exit(0)\n");
+    assert.match(run(`node ${shaped} --file ${target}`), /Direct shell mutation/);
+
     assert.equal(run(`node ${installed} --file ${target}`), null);
-    assert.match(run(`node ${installed} --file ${target} > ${target}`), /Direct shell mutation/);
+    assert.equal(run(`node ${installed} --file ${target} 2> /dev/null`), null);
+    for (const redirect of [`> ${target}`, `>> ${target}`, `>& ${target}`, `2> ${target}`]) {
+      assert.match(run(`node ${installed} --file ${target} ${redirect}`), /Direct shell mutation/);
+    }
     assert.match(run(`echo x >> ${memoryPath}`), /Direct shell mutation/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

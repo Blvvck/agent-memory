@@ -62,7 +62,7 @@ Session end is whatever signal the harness provides:
 |---------|------------|
 | Claude Code | `SessionEnd` |
 | Codex | `SessionEnd` |
-| OpenCode | plugin `session.idle`, mapped to `SessionEnd` |
+| OpenCode | plugin `session.deleted` |
 | Cursor | `sessionEnd` |
 | Antigravity | no end event; stale-session recovery handles it |
 

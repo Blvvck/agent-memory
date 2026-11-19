@@ -106,17 +106,40 @@ function installedWriter(program: string, cwd = process.cwd()): boolean {
     : resolveProgram(program);
   if (!candidate || !existsSync(candidate)) return false;
   try {
-    const actual = realpathSync(candidate);
-    if (actual === realpathSync(resolve(__dirname, "agent-log.js"))) return true;
-    return actual.endsWith("@blvvck/agent-memory/dist/agent-log.js");
+    const installed = resolve(__dirname, "agent-log.js");
+    if (realpathSync(candidate) === realpathSync(installed)) return true;
+    return readFileSync(candidate).equals(readFileSync(installed));
   } catch { return false; }
 }
 
-function segmentReadOnly(segment: string): boolean {
-  if (/(?:^|\s)(?:>>?|<>|&>?)\s*[^\s]*/.test(segment)) {
-    const redirects = [...segment.matchAll(/(?:^|\s)(\d*[<>]{1,2}|&>|>\&)\s*([^\s]*)/g)];
-    if (redirects.some((match) => !/^\d*>&\d+$/.test(match[1] + match[2]) && !/^\d*>\/dev\/null$/.test(match[1] + match[2]))) return false;
+function unquoted(segment: string): string {
+  let text = "";
+  let quote = "";
+  for (let index = 0; index < segment.length; index++) {
+    const char = segment[index];
+    if (quote) {
+      if (char === "\\" && quote === '"' && index + 1 < segment.length) text += segment[++index];
+      else if (char === quote) quote = "";
+      continue;
+    }
+    if (char === "'" || char === '"') { quote = char; continue; }
+    if (char === "\\" && index + 1 < segment.length) { text += segment[++index]; continue; }
+    text += char;
   }
+  return text;
+}
+
+function hasBlockingRedirect(segment: string): boolean {
+  for (const match of unquoted(segment).matchAll(/(?:\d*)(>>?|>&|&>)\s*([^\s;|&]*)/g)) {
+    const target = match[2] ?? "";
+    if (/^&\d+$/.test(target) || target === "/dev/null") continue;
+    return true;
+  }
+  return false;
+}
+
+function segmentReadOnly(segment: string): boolean {
+  if (hasBlockingRedirect(segment)) return false;
   const parsed = words(segment);
   if (!parsed?.length) return false;
   let args = parsed;
@@ -147,7 +170,7 @@ function isWriterCommand(command: string, cwd: string): boolean {
   const segments = splitShell(command);
   if (!segments?.length) return false;
   return segments.every((segment) => {
-    if (/(?:^|\s)(?:\d*[<>]{1,2}|&>)\s*[^\s&]/.test(segment)) return false;
+    if (hasBlockingRedirect(segment)) return false;
     const parsed = words(segment);
     if (!parsed?.length) return false;
     const args = parsed.filter((arg, index) => index > 0 || !/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg));
