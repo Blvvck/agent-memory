@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { projectMemoryDirectory, projectMemoryRoot } from "../../memory-paths";
 
 const agentsDirectory = join(homedir(), ".agent-memory", "agents");
@@ -23,6 +23,17 @@ function discoverAgents(cwd: string): Map<string, AgentBody> {
   const projectDirectory = projectMemoryDirectory(cwd);
   for (const agent of readAgents(join(projectMemory, "agents"), `${projectDirectory}/agents`)) agents.set(agent.name.toLowerCase(), agent);
   return agents;
+}
+
+function inside(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function allowedWakeReference(reference: string, agent: AgentBody, roots: string[]): boolean {
+  const expanded = reference.replace(/^~(?=$|[/\\])/, homedir());
+  const absolute = isAbsolute(expanded) ? expanded : resolve(agent.directory, expanded);
+  return roots.some((root) => inside(root, absolute));
 }
 
 function escapeRegex(value: string): string {
@@ -86,6 +97,7 @@ export function wakeContext(prompt: string, cwd: string): string | null {
       const wakeFiles = readFileSync(wakePath, "utf8").match(fileReferencePattern) ?? [];
       for (const file of wakeFiles) {
         const reference = file.replace(/[),.;:'"`]+$/g, "");
+        if (!allowedWakeReference(reference, agent, [agent.directory, projectMemory, join(homedir(), ".agent-memory")])) continue;
         const normalized = /^(?:~\/|\/|\.\.\/|\.\/|\.[\w-]+\/)/.test(reference)
           ? reference
           : `${agent.referenceRoot}/${reference}`;

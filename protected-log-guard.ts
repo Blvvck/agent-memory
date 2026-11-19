@@ -89,13 +89,27 @@ function words(segment: string): string[] | null {
   return result;
 }
 
-function installedWriter(program: string): boolean {
+function resolveProgram(program: string): string | null {
+  if (isAbsolute(program)) return existsSync(program) ? program : null;
+  if (program.includes("/")) {
+    const local = resolve(program);
+    return existsSync(local) ? local : null;
+  }
+  return process.env.PATH?.split(":").map((dir) => resolve(dir, program)).find(existsSync) ?? null;
+}
+
+function installedWriter(program: string, cwd = process.cwd()): boolean {
   const name = basename(program);
   if (name !== "agent-log" && name !== "agent-log.js") return false;
-  const path = isAbsolute(program) ? program : process.env.PATH?.split(":").map((dir) => resolve(dir, program)).find(existsSync);
-  if (!path) return false;
-  try { return realpathSync(path) === realpathSync(resolve(__dirname, "agent-log.js")); }
-  catch { return false; }
+  const candidate = isAbsolute(program) ? program
+    : program.includes("/") ? resolve(cwd, program)
+    : resolveProgram(program);
+  if (!candidate || !existsSync(candidate)) return false;
+  try {
+    const actual = realpathSync(candidate);
+    if (actual === realpathSync(resolve(__dirname, "agent-log.js"))) return true;
+    return actual.endsWith("@blvvck/agent-memory/dist/agent-log.js");
+  } catch { return false; }
 }
 
 function segmentReadOnly(segment: string): boolean {
@@ -129,17 +143,19 @@ function segmentReadOnly(segment: string): boolean {
   return readOnlyCommands.has(program);
 }
 
-function isWriterCommand(command: string): boolean {
+function isWriterCommand(command: string, cwd: string): boolean {
   const segments = splitShell(command);
   if (!segments?.length) return false;
   return segments.every((segment) => {
-    const words = segment.trim().split(/\s+/).filter(Boolean);
-    let index = 0;
-    while (index < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])) index++;
-    const program = words[index] ?? "";
-    const base = program.split(/[\\/]/).pop() ?? "";
-    if (base === "agent-log" || base === "agent-log.js") return true;
-    return base === "node" && (words[index + 1] ?? "").includes("agent-log");
+    if (/(?:^|\s)(?:\d*[<>]{1,2}|&>)\s*[^\s&]/.test(segment)) return false;
+    const parsed = words(segment);
+    if (!parsed?.length) return false;
+    const args = parsed.filter((arg, index) => index > 0 || !/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg));
+    while (args.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(args[0])) args.shift();
+    if (!args.length) return false;
+    const program = basename(args[0]);
+    if (installedWriter(args[0], cwd)) return true;
+    return ["node", "nodejs"].includes(program) && args.length > 1 && installedWriter(args[1], cwd);
   });
 }
 
@@ -154,7 +170,8 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
   if (toolName === "Bash") {
     const input = payload.tool_input && typeof payload.tool_input === "object" ? payload.tool_input as Record<string, unknown> : {};
     const command = String(input.command || input.cmd || input.script || "");
-    if (isWriterCommand(command)) return null;
+    const cwd = String(input.workdir || input.cwd || payload.cwd || process.cwd());
+    if (isWriterCommand(command, cwd)) return null;
     if ([...protectedNames].some((name) => command.toUpperCase().includes(name)) && shellMutates(command)) {
       return `Direct shell mutation of protected agent memory is blocked. Use the installed agent-log writer for protected logging. ${command}`;
     }
@@ -174,11 +191,12 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
 }
 
 if (require.main === module) {
+  let reason: string | null = null;
   try {
     const payload = JSON.parse(readFileSync(0, "utf8")) as Record<string, unknown>;
-    const reason = guardPayload(payload);
-    if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
+    reason = guardPayload(payload);
   } catch {
-    process.exitCode = 0;
+    reason = "The protected-log guard could not read its input, so this tool call is blocked. Retry the call, and if it repeats, use the installed agent-log writer.";
   }
+  if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
 }

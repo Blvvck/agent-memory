@@ -25,8 +25,8 @@ const server = async (input: Dict) => ({
     const event = hook?.event ?? {};
     const sessionID = String(event?.properties?.sessionID ?? event?.properties?.info?.id ?? "");
     if (!sessionID) return;
-    if (event.type === "session.idle") dispatch("SessionEnd", { session_id: sessionID, cwd: input.directory });
     if (event.type === "session.deleted") {
+      dispatch("SessionEnd", { session_id: sessionID, cwd: input.directory });
       pending.delete(sessionID);
       started.delete(sessionID);
     }

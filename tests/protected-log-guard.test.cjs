@@ -37,10 +37,26 @@ test("a project reached through a symlink still has a canonical memory path", ()
   }
 });
 
-test("the writer may name a protected log, a shell redirect may not", () => {
-  const writer = `agent-log --file ${memoryPath} --content x --trace "none (new topic)" --agent Test --cli cli --session-id abc123 --project p`;
-  assert.equal(guardPayload(bashPayload(writer)), null);
-  assert.match(guardPayload(bashPayload(`echo x >> ${memoryPath}`)), /Direct shell mutation/);
+test("only the installed writer is exempt, and never with a redirect", () => {
+  const dir = mkdtempSync(join(tmpdir(), "agent-fake-writer-"));
+  const installed = join(__dirname, "..", "dist", "agent-log.js");
+  const target = join(cwd, memoryPath);
+  const run = (command) => guardPayload({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command, cwd } });
+  try {
+    const fake = join(dir, "agent-log");
+    writeFileSync(fake, "#!/bin/sh\ntrue\n", { mode: 0o755 });
+    assert.match(run(`${fake} --file ${target}`), /Direct shell mutation/);
+
+    const fakeNode = join(dir, "fake-agent-log.js");
+    writeFileSync(fakeNode, "process.exit(0)\n");
+    assert.match(run(`node ${fakeNode} --file ${target}`), /Direct shell mutation/);
+
+    assert.equal(run(`node ${installed} --file ${target}`), null);
+    assert.match(run(`node ${installed} --file ${target} > ${target}`), /Direct shell mutation/);
+    assert.match(run(`echo x >> ${memoryPath}`), /Direct shell mutation/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("the guard blocks as a subprocess, which is how non-Claude harnesses call it", () => {
@@ -59,6 +75,10 @@ test("the guard blocks as a subprocess, which is how non-Claude harnesses call i
   });
   assert.equal(allowed.status, 0);
   assert.equal(allowed.stdout.trim(), "");
+
+  const malformed = spawnSync(process.execPath, [script], { input: "not json", encoding: "utf8" });
+  assert.equal(malformed.status, 0);
+  assert.equal(JSON.parse(malformed.stdout.trim()).decision, "block");
 });
 
 test("index staging and read-only git inspection may name protected logs", () => {

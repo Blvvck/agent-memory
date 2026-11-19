@@ -213,6 +213,16 @@ export function snapshotInBackground(cwd: string): void {
   child.unref();
 }
 
+export function snapshotScopeInBackground(scope: "global" | "project"): void {
+  if (!resticAvailable()) return;
+  const child = spawn(process.execPath, [join(__dirname, "backup.js"), "snapshot", "--scope", scope, "--quiet"], {
+    env: process.env,
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+}
+
 export function snapshotOnLifecycle(): void {
   if (!resticAvailable()) return;
   for (const scope of ["global", "project"] as const) {
@@ -375,7 +385,7 @@ function main(): void {
     const scopes = scope ? [scope] : ["global", "project"] as const;
     for (const item of scopes) {
       const path = scopePath(item);
-      if (path) snapshot(path, quiet);
+      if (path && !scopeUsesGit(path)) snapshot(path, quiet);
     }
     return;
   }

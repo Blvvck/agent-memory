@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { appendEvent, updateCurrentSession } from "../../common";
 import { projectMemoryRoot } from "../../memory-paths";
 import { syncSkills } from "../../skills";
-import { snapshotInBackground } from "../../backup";
+import { snapshotInBackground, snapshotScopeInBackground } from "../../backup";
 import { pendingCronSummary } from "../../crons";
 import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
 import { promptFromPayload, wakeContext } from "./wake";
@@ -180,7 +180,9 @@ function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cw
   if (!existsSync(target)) return;
   if (Date.now() - lastOverwriteSnapshot < 300_000) return;
   lastOverwriteSnapshot = Date.now();
-  try { snapshotInBackground(cwd); }
+  const globalRoot = join(homedir(), ".agent-memory").replace(/\\/g, "/");
+  const scope = target.replace(/\\/g, "/").startsWith(globalRoot) ? "global" : "project";
+  try { snapshotScopeInBackground(scope); }
   catch { /* backups fail open */ }
 }
 
