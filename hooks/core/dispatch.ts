@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { STATE_DIR, appendEvent, updateCurrentSession } from "../../common";
@@ -177,10 +177,13 @@ function claimSnapshot(scope: string): boolean {
   } catch {
     try {
       if (Date.now() - statSync(marker).mtimeMs < 300_000) return false;
-      rmdirSync(marker);
     } catch {
       return false;
     }
+    const stolen = `${marker}.stale-${process.pid}-${Date.now()}`;
+    try { renameSync(marker, stolen); }
+    catch { return false; }
+    try { rmdirSync(stolen); } catch { /* best effort */ }
     try { mkdirSync(marker); return true; }
     catch { return false; }
   }
