@@ -168,16 +168,22 @@ function overwriteSnapshotMarker(scope: string): string {
   return join(STATE_DIR, `overwrite-snapshot-${scope}`);
 }
 
-function recentlySnapshotted(scope: string): boolean {
-  try { return Date.now() - statSync(overwriteSnapshotMarker(scope)).mtimeMs < 300_000; }
-  catch { return false; }
-}
-
-function markSnapshotted(scope: string): void {
+function claimSnapshot(scope: string): boolean {
+  const marker = overwriteSnapshotMarker(scope);
+  const now = new Date().toISOString();
   try {
     mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(overwriteSnapshotMarker(scope), new Date().toISOString());
-  } catch { /* throttle fail-open */ }
+    writeFileSync(marker, now, { flag: "wx" });
+    return true;
+  } catch {
+    try {
+      if (Date.now() - statSync(marker).mtimeMs < 300_000) return false;
+      writeFileSync(marker, now);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 function isMemoryFile(path: string): boolean {
@@ -193,10 +199,14 @@ function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cw
   if (!target || !isMemoryFile(target)) return;
   if (!existsSync(target)) return;
   const globalRoot = join(homedir(), ".agent-memory").replace(/\\/g, "/");
-  const scope = target.replace(/\\/g, "/").startsWith(globalRoot) ? "global" : "project";
-  if (recentlySnapshotted(scope)) return;
-  markSnapshotted(scope);
-  try { snapshotScopeInBackground(scope); }
+  const isGlobal = target.replace(/\\/g, "/").startsWith(globalRoot);
+  let key = "global";
+  if (!isGlobal) {
+    try { key = createHash("sha256").update(projectMemoryRoot(cwd)).digest("hex").slice(0, 16); }
+    catch { key = "project"; }
+  }
+  if (!claimSnapshot(key)) return;
+  try { snapshotScopeInBackground(isGlobal ? "global" : "project"); }
   catch { /* backups fail open */ }
 }
 

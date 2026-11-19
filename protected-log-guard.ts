@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { basename, delimiter, extname, isAbsolute, resolve } from "node:path";
+import { basename, delimiter, dirname, extname, isAbsolute, resolve, sep } from "node:path";
 import { canonicalProtectedLogPath, ProtectedLogError } from "./protected-log";
 
+const backslashEscapes = process.platform !== "win32";
 const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD"]);
 const patchPath = /^\*\*\* (?:Update|Add|Delete) File: (.+?)\s*$/gm;
 const readOnlyCommands = new Set(["cat", "head", "tail", "grep", "rg", "wc", "stat", "file", "ls", "cut", "tr", "trace-search", "pwd", "true", "false", "echo", "printf", "test", "["]);
@@ -49,12 +50,12 @@ function splitShell(command: string): string[] | null {
     const char = command[index];
     if (quote) {
       current += char;
-      if (char === "\\" && quote === '"' && index + 1 < command.length) current += command[++index];
+      if (backslashEscapes && char === "\\" && quote === '"' && index + 1 < command.length) current += command[++index];
       else if (char === quote) quote = "";
     } else if (char === "'" || char === '"') {
       quote = char;
       current += char;
-    } else if (char === "\\" && index + 1 < command.length) current += char + command[++index];
+    } else if (backslashEscapes && char === "\\" && index + 1 < command.length) current += char + command[++index];
     else if (char === "`" || command.startsWith("$(", index) || command.startsWith("<(", index) || command.startsWith(">(", index)) return null;
     else if (char === ";" || char === "|" || char === "\n" || (char === "&" && command[index + 1] !== ">" && command[index - 1] !== "<" && command[index - 1] !== ">")) {
       if (current.trim()) segments.push(current.trim());
@@ -75,13 +76,13 @@ function words(segment: string): string[] | null {
     const char = segment[index];
     if (quote) {
       if (char === quote) quote = "";
-      else if (char === "\\" && quote === '"' && index + 1 < segment.length) value += segment[++index];
+      else if (backslashEscapes && char === "\\" && quote === '"' && index + 1 < segment.length) value += segment[++index];
       else value += char;
     } else if (char === "'" || char === '"') quote = char;
     else if (/\s/.test(char)) {
       if (value) result.push(value);
       value = "";
-    } else if (char === "\\" && index + 1 < segment.length) value += segment[++index];
+    } else if (backslashEscapes && char === "\\" && index + 1 < segment.length) value += segment[++index];
     else value += char;
   }
   if (quote) return null;
@@ -113,8 +114,11 @@ function shimTarget(file: string): string | null {
   if (![".cmd", ".ps1", ""].includes(extname(file).toLowerCase())) return null;
   try {
     const text = readFileSync(file, "utf8").slice(0, 65_536);
-    const match = text.match(/[A-Za-z]:[^"\r\n]*agent-log\.js|[^"\s]*[\\/]agent-log\.js/);
-    return match ? match[0] : null;
+    const match = text.match(/[A-Za-z]:[^"\r\n]*agent-log\.js|%~dp0[^"\r\n]*agent-log\.js|[^"\s]*[\\/]agent-log\.js/);
+    if (!match) return null;
+    const directory = dirname(file);
+    const expanded = match[0].replace(/%~dp0[\\/]?/gi, `${directory}${sep}`);
+    return isAbsolute(expanded) ? expanded : resolve(directory, expanded);
   } catch { return null; }
 }
 
@@ -140,7 +144,7 @@ function installedWriter(program: string, cwd = process.cwd()): boolean {
       if (!statSync(candidate).isFile()) continue;
       if (sameFileAsInstalled(candidate)) return true;
       const target = shimTarget(candidate);
-      if (target && sameFileAsInstalled(resolve(cwd, target))) return true;
+      if (target && sameFileAsInstalled(target)) return true;
     } catch { continue; }
   }
   return false;
@@ -156,7 +160,7 @@ function unquoted(segment: string): string {
       continue;
     }
     if (char === "'" || char === '"') { quote = char; continue; }
-    if (char === "\\" && index + 1 < segment.length) { text += " "; index++; continue; }
+    if (backslashEscapes && char === "\\" && index + 1 < segment.length) { text += " "; index++; continue; }
     text += char;
   }
   return text;
