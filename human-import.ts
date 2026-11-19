@@ -184,11 +184,25 @@ export function runHuman(args: string[]): void {
   });
 }
 
-function insertNearTop(profile: string, section: string): string {
-  const title = /^[ \t]*#\s+.*$/m.exec(profile);
-  if (title) {
-    const end = title.index + title[0].length;
-    return `${profile.slice(0, end)}\n${section}${profile.slice(end)}`;
+function titleEnd(profile: string): number {
+  let fence = "";
+  let offset = 0;
+  for (const line of profile.split("\n")) {
+    const trimmed = line.trimStart();
+    const marker = /^(`{3,}|~{3,})/.exec(trimmed);
+    if (marker) {
+      if (!fence) fence = marker[1][0];
+      else if (marker[1][0] === fence) fence = "";
+    } else if (!fence && /^#\s+\S/.test(trimmed)) {
+      return offset + line.length;
+    }
+    offset += line.length + 1;
   }
+  return -1;
+}
+
+function insertNearTop(profile: string, section: string): string {
+  const end = titleEnd(profile);
+  if (end >= 0) return `${profile.slice(0, end)}\n${section}${profile.slice(end)}`;
   return `# Human — Profile\n\n${section.trimStart()}${profile ? `\n${profile}` : ""}`;
 }
