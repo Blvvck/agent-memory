@@ -352,7 +352,7 @@ I designed the team version around roles for access, SCIM provisioning from the 
 
 ## Design
 
-I've designed agent bodies, global files, and project files as Markdown because there's nothing between you and the logs: no schema, no database, no tool. Open the file and you see everything the agent knows, newest entry first. Each entry stands on its own with its timestamp, agent, session, and trace, so the wake step reads the first 80 lines of memory, 50 of learnings, and 50 of patterns and has enough to resume. That slice is the whole context cost; the rest of the file stays unread until a later session needs it.
+I've designed agent bodies, global files, and project files as Markdown because there's nothing between you and the logs: no schema, no database, no tool. Open the file and you see everything the agent knows, newest entry first. Each entry stands on its own with its timestamp, agent, session, and trace, so the wake step reads the first 80 lines of memory, 50 of learnings, and 50 of patterns and has enough to resume. The rest of the file stays unread until the agent needs it.
 
 Versioning is optional and works either way. Stage the memory in git and every change is a readable diff and a revertable commit. Leave it untracked, which is the default, and with restic installed Agent Memory snapshots it at setup, at session end, and before compaction, so `agent-memory backup list` and `backup restore` give you earlier versions. Plain text is what keeps both cheap: git can diff it, and a snapshot is just files.
 
