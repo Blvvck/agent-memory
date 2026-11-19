@@ -294,6 +294,8 @@ Required: Node.js 18 or later. Optional: git for tracked scaffolds, restic for v
 
 Most harnesses now support a memory file, but it isn't as enforced or kept updated, and it stays vendor-locked to each harness. Agent Memory does the opposite: it keeps your agent bodies and memory in files you own, so the same agent can wake in any host that can read them.
 
+Agent Memory supports five harnesses today, and the table below shows the rest of what's shipping. If yours isn't there, clone the repository and point an agent at it to add support for whichever harness you use.
+
 | Harness | Where it runs | How memory reaches it | Status |
 |---|---|---|---|
 | Claude Code | your machine, IDE, web | files and hooks | supported |
