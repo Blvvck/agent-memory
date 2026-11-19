@@ -170,6 +170,25 @@ test("a titleless profile gets a title and the import near the top", () => {
   }
 });
 
+test("an existing title is reused, even after whitespace or a preamble", () => {
+  const { home, source } = setup();
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    for (const prefix of ["   \n\n", "A short preamble.\n\n"]) {
+      mkdirSync(join(home, ".agent-memory", "human"), { recursive: true });
+      writeFileSync(destination, `${prefix}# My Profile\n\nExisting line.\n`, "utf8");
+      assert.equal(run(home, ["import", "--from", source, "--yes"]).status, 0);
+      const text = readFileSync(destination, "utf8");
+      assert.equal((text.match(/^[ \t]*#\s+My Profile/gm) ?? []).length, 1, `duplicate title after ${JSON.stringify(prefix)}`);
+      assert.doesNotMatch(text, /^[ \t]*#\s+Human — Profile/gm, "fallback title added despite an existing title");
+      assert.match(text.split("\n").slice(0, 30).join("\n"), /I prefer short answers/);
+      rmSync(join(home, ".agent-memory", "human", "imports.json"), { force: true });
+    }
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("import writes nothing without --yes", () => {
   const { home, source } = setup();
   const destination = join(home, ".agent-memory", "human", "profile.md");
