@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { STATE_DIR, appendEvent, updateCurrentSession } from "../../common";
@@ -170,19 +170,19 @@ function overwriteSnapshotMarker(scope: string): string {
 
 function claimSnapshot(scope: string): boolean {
   const marker = overwriteSnapshotMarker(scope);
-  const now = new Date().toISOString();
   try {
     mkdirSync(STATE_DIR, { recursive: true });
-    writeFileSync(marker, now, { flag: "wx" });
+    mkdirSync(marker);
     return true;
   } catch {
     try {
       if (Date.now() - statSync(marker).mtimeMs < 300_000) return false;
-      writeFileSync(marker, now);
-      return true;
+      rmdirSync(marker);
     } catch {
       return false;
     }
+    try { mkdirSync(marker); return true; }
+    catch { return false; }
   }
 }
 
