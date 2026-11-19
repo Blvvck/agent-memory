@@ -237,7 +237,7 @@ Restores default to a temporary directory. `--in-place --yes` merges into the li
 | Harness | Global instructions | Project instructions | Project hooks or plugin |
 |---------|--------------------|----------------------|-------------------------|
 | Claude Code | import in `~/.claude/CLAUDE.md` | `CLAUDE.md` or `AGENTS.md` | `.claude/settings.json` |
-| Codex | `~/.codex/AGENTS.md` | `AGENTS.md` | `.codex/hooks.json` |
+| Codex | `~/.codex/AGENTS.md` | `AGENTS.md` | `~/.codex/hooks.json` |
 | OpenCode | `~/.config/opencode/AGENTS.md` | `AGENTS.md` | `.opencode/plugins/` |
 | Antigravity | `~/.gemini/GEMINI.md` | `GEMINI.md` or `AGENTS.md` | `.agents/hooks.json` |
 | Cursor | shared instructions at session start | `AGENTS.md` | `.cursor/hooks.json` |
