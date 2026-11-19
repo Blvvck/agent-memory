@@ -85,9 +85,12 @@ function emit(event: string, result: HookResult): void {
     return;
   }
   if (event === "beforeSubmitPrompt") {
-    process.stdout.write(`${JSON.stringify(result.blocked
-      ? { continue: false, user_message: result.reason }
-      : { continue: true })}\n`);
+    if (result.blocked) {
+      process.stdout.write(`${JSON.stringify({ continue: false, user_message: result.reason })}\n`);
+      return;
+    }
+    const context = result.contexts.join("\n\n");
+    process.stdout.write(`${JSON.stringify(context ? { continue: true, user_message: context } : { continue: true })}\n`);
     return;
   }
   if (event === "preCompact") {

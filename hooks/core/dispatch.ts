@@ -11,6 +11,7 @@ import { syncSkills } from "../../skills";
 import { snapshotInBackground } from "../../backup";
 import { pendingCronSummary } from "../../crons";
 import { appendBrainSyncEvent, hasBrainSyncSessionState, makeBrainSyncRequest, readBrainSyncEvents, recordBrainSyncSessionEvent, recoverStaleSessions, runBrainSync, type MemoryTranscriptEvent } from "./brain-sync";
+import { promptFromPayload, wakeContext } from "./wake";
 
 interface HookPayload extends Record<string, unknown> {
   hook_event_name?: string;
@@ -212,6 +213,12 @@ export function dispatch(payload: HookPayload): HookResult {
   if (event === "SessionEnd" || event === "PreCompact") {
     try { snapshotInBackground(cwd); }
     catch { /* backups fail open */ }
+  }
+  if (source !== "claude" && ["UserPromptSubmit", "PreInvocation"].includes(event)) {
+    try {
+      const wake = wakeContext(promptFromPayload(payload), cwd);
+      if (wake) contexts.push(wake);
+    } catch { /* wake detection fails open */ }
   }
   if (event === "PreToolUse") {
     collectResult(runHook("guard", payload), blocks, contexts);

@@ -69,6 +69,10 @@ function main(): void {
     tool_input: normalizeArgs(toolName, rawToolArgs),
     session_id: sessionId,
     cwd,
+    ...(typeof payload.prompt === "string" ? { prompt: payload.prompt } : {}),
+    ...(typeof payload.lastUserInput === "string" ? { lastUserInput: payload.lastUserInput } : {}),
+    ...(Array.isArray(payload.parts) ? { parts: payload.parts } : {}),
+    ...(payload.message ? { message: payload.message } : {}),
   });
 
   if (event === "PreToolUse") {

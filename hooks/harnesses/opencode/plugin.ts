@@ -1,88 +1,80 @@
-import { dispatchWithSource } from "../../core/dispatch";
+import { dispatchHook } from "./dispatch";
 
 type Dict = Record<string, any>;
 
-function asRecord(value: unknown): Dict {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Dict : {};
+function textOf(parts: unknown): string {
+  if (!Array.isArray(parts)) return "";
+  return parts.flatMap((part) => part && typeof part === "object" && (part as Dict).type === "text" && typeof (part as Dict).text === "string"
+    ? [(part as Dict).text as string]
+    : []).join("\n");
 }
 
-async function sessionPayload(ctx: Dict, event: Dict, toolName?: string): Promise<Dict> {
-  const sessionId = event.sessionID || event.sessionId || event.session_id || "";
-  let cwd = event.cwd || event.directory;
-  if (!cwd && sessionId) {
-    try {
-      const session = await ctx.session.get({ sessionID: sessionId });
-      cwd = session.directory || session.cwd;
-    } catch {}
+function dispatch(event: string, payload: Dict): string[] {
+  try {
+    return dispatchHook(event, payload).contexts;
+  } catch {
+    return [];
   }
-  return {
-    session_id: sessionId,
-    cwd: cwd || ctx.location?.project?.directory || process.cwd(),
-    ...(toolName ? { tool_name: toolName, tool_input: event.input || {} } : {}),
-  };
 }
 
-function inject(event: Dict, contexts: string[]): void {
-  for (const text of [...new Set(contexts)]) event.system.push({ type: "text", text });
-}
+const pending = new Map<string, string[]>();
+const started = new Set<string>();
 
-function dispatch(eventName: string, payload: Dict): string[] {
-  const result = dispatchWithSource("opencode", { ...payload, hook_event_name: eventName });
-  return result.contexts;
-}
-
-function canonicalTool(name: string): string {
-  return ({ bash: "Bash", edit: "Edit", write: "Write", apply_patch: "apply_patch", task: "Task", agent: "Agent", webfetch: "WebFetch", websearch: "WebSearch" } as Record<string, string>)[name.toLowerCase()] || name;
-}
-
-export default {
-  id: "agent-memory",
-  async setup(ctx: Dict) {
-    const controller = new AbortController();
-    void (async () => {
-      for await (const item of ctx.event.subscribe({ types: ["session.idle"], signal: controller.signal })) {
-        const data = asRecord(item.data);
-        const sessionId = data.sessionID || data.sessionId || data.id || "";
-        if (!sessionId) continue;
-        dispatch("SessionEnd", await sessionPayload(ctx, { ...data, sessionID: sessionId }));
-      }
-    })().catch(() => undefined);
-
-    await ctx.session.hook("prompt", async (event: Dict) => {
-      const prompt = asRecord(event.prompt);
-      const payload = await sessionPayload(ctx, event);
-      dispatch("UserPromptSubmit", {
-        ...payload,
-        prompt: String(prompt.text || ""),
-        message_id: event.messageID || event.messageId,
-      });
-    });
-
-    await ctx.tool.hook("execute.after", async (event: Dict) => {
-      const toolName = canonicalTool(String(event.tool || event.name || ""));
-      const payload = await sessionPayload(ctx, event, toolName);
-      dispatch(event.status === "error" ? "PostToolUseFailure" : "PostToolUseCapture", {
-        ...payload,
-        call_id: event.id || event.callID,
-        error: event.status === "error" ? event.error : undefined,
-      });
-    });
-
-    await ctx.session.hook("context", async (event: Dict) => {
-      const payload = await sessionPayload(ctx, event);
-      inject(event, [
-        ...dispatch("SessionStart", payload),
-        ...dispatch("PostToolUse", payload),
-        ...dispatch("Stop", payload),
-      ]);
-    });
-
-    await ctx.session.hook("compaction", async (event: Dict) => {
-      const payload = await sessionPayload(ctx, event);
-      const pending = dispatch("PreCompact", payload);
-      inject(event, pending.map((text) => `Before this summary is finalized, preserve this as an explicit pending action. Do not imply the memory sync is already complete.\n\n${text}`));
-    });
-
-    return () => controller.abort();
+const server = async (input: Dict) => ({
+  event: async (hook: Dict) => {
+    const event = hook?.event ?? {};
+    const sessionID = String(event?.properties?.sessionID ?? event?.properties?.info?.id ?? "");
+    if (!sessionID) return;
+    if (event.type === "session.idle") dispatch("SessionEnd", { session_id: sessionID, cwd: input.directory });
+    if (event.type === "session.deleted") {
+      pending.delete(sessionID);
+      started.delete(sessionID);
+    }
   },
-};
+
+  "chat.message": async (hook: Dict, output: Dict) => {
+    const sessionID = String(hook?.sessionID ?? "");
+    const contexts = dispatch("UserPromptSubmit", {
+      session_id: sessionID,
+      cwd: input.directory,
+      prompt: textOf(output?.parts),
+      message_id: hook?.messageID,
+    });
+    if (contexts.length) pending.set(sessionID, [...(pending.get(sessionID) ?? []), ...contexts]);
+  },
+
+  "experimental.chat.system.transform": async (hook: Dict, output: Dict) => {
+    const sessionID = String(hook?.sessionID ?? "");
+    const contexts: string[] = [];
+    if (sessionID && !started.has(sessionID)) {
+      started.add(sessionID);
+      contexts.push(...dispatch("SessionStart", { session_id: sessionID, cwd: input.directory }));
+    }
+    const queued = sessionID ? pending.get(sessionID) : undefined;
+    if (queued?.length) {
+      contexts.push(...queued);
+      pending.delete(sessionID);
+    }
+    if (!contexts.length || !Array.isArray(output?.system)) return;
+    for (const text of [...new Set(contexts)]) output.system.push(text);
+  },
+
+  "tool.execute.after": async (hook: Dict, output: Dict) => {
+    dispatch("PostToolUse", {
+      session_id: String(hook?.sessionID ?? ""),
+      cwd: input.directory,
+      tool_name: hook?.tool,
+      tool_input: hook?.args,
+      tool_response: { title: output?.title, output: output?.output },
+      call_id: hook?.callID,
+    });
+  },
+
+  "experimental.session.compacting": async (hook: Dict, output: Dict) => {
+    const contexts = dispatch("PreCompact", { session_id: String(hook?.sessionID ?? ""), cwd: input.directory });
+    if (!Array.isArray(output?.context)) return;
+    output.context.push(...contexts.map((text) => `Before this summary is finalized, preserve this as an explicit pending action. Do not imply the memory sync is already complete.\n\n${text}`));
+  },
+});
+
+export default { id: "agent-memory", server };

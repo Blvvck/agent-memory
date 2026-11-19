@@ -20,7 +20,7 @@ function makeHome() {
 
 function wake(message, home, project) {
   const result = spawnSync(process.execPath, [join(root, "dist", "hooks", "harnesses", "claude-code", "wake.js")], {
-    input: JSON.stringify({ message, cwd: project }),
+    input: JSON.stringify({ prompt: message, cwd: project }),
     encoding: "utf8",
     env: { ...process.env, HOME: home, USERPROFILE: home, HOMEDRIVE: "", HOMEPATH: "" },
   });
@@ -36,6 +36,12 @@ test("named agents wake from a direct address or an explicit mention", () => {
     assert.match(wake("can you ask luna to review this?", home, project), /\[WAKE PROTOCOL for Luna\]/);
     assert.match(wake("Luna, take the next step", home, project), /\[WAKE PROTOCOL for Luna\]/);
     assert.match(wake("I saw a luna moth", home, project), /^$/);
+    const legacy = spawnSync(process.execPath, [join(root, "dist", "hooks", "harnesses", "claude-code", "wake.js")], {
+      input: JSON.stringify({ message: "hey luna", cwd: project }),
+      encoding: "utf8",
+      env: { ...process.env, HOME: home, USERPROFILE: home, HOMEDRIVE: "", HOMEPATH: "" },
+    });
+    assert.match(legacy.stdout, /\[WAKE PROTOCOL for Luna\]/, "a plain message field still wakes the body");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

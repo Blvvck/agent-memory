@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -116,10 +118,13 @@ function existingProjectLayout(projectRoot: string): Layout | null {
     .map(([layout]) => layout as Layout);
   if (existsSync(markerPath)) {
     const selected = readFileSync(markerPath, "utf8").trim();
-    if (!Object.hasOwn(layoutDirectories, selected)) throw new Error(`Unrecognized project memory selection '${selected}' in ${markerPath}. Choose one valid layout before running setup.`);
-    const extraScaffolds = scaffolded.filter((layout) => layout !== selected);
-    if (extraScaffolds.length) throw new Error(`This project has additional memory scaffolds besides its selected ${layoutDirectories[selected as Layout]} directory: ${extraScaffolds.map((layout) => layoutDirectories[layout]).join(", ")}. Consolidate them into the selected directory before running setup.`);
-    return selected as Layout;
+    const fromDirectory = (Object.entries(layoutDirectories) as Array<[Layout, string]>)
+      .find(([, directory]) => directory === selected)?.[0];
+    const layout = fromDirectory ?? (Object.hasOwn(layoutDirectories, selected) ? selected as Layout : null);
+    if (!layout) throw new Error(`Unrecognized project memory selection '${selected}' in ${markerPath}. Choose one valid layout before running setup.`);
+    const extraScaffolds = scaffolded.filter((candidate) => candidate !== layout);
+    if (extraScaffolds.length) throw new Error(`This project has additional memory scaffolds besides its selected ${layoutDirectories[layout]} directory: ${extraScaffolds.map((candidate) => layoutDirectories[candidate]).join(", ")}. Consolidate them into the selected directory before running setup.`);
+    return layout;
   }
   if (scaffolded.length > 1) {
     throw new Error(`This project already has multiple memory directories (${scaffolded.map((layout) => layoutDirectories[layout]).join(", ")}). Keep one directory, then record it in .agent-memory-layout before running setup.`);
