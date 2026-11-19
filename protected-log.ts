@@ -53,6 +53,7 @@ export function policyForPath(path: string): LogPolicy {
   if (name === "PATTERNS.MD") return { name: "patterns", requireContext: true, ordering: "newest" };
   if (name === "ACTIVITY.MD") return { name: "activity", requireContext: true, ordering: "newest" };
   if (name === "NOTIFICATIONS.MD") return { name: "notifications", requireContext: true, ordering: "newest" };
+  if (name === "HISTORY.MD") return { name: "history", requireContext: true, ordering: "newest" };
   if (name === "MEMORY.MD" || name === "LEARNINGS.MD") return { name: name.toLowerCase().slice(0, -3), requireContext: true, ordering: "newest" };
   throw new ProtectedLogError(`unrecognized protected log: ${path}`);
 }
@@ -109,6 +110,13 @@ export function canonicalProtectedLogPath(path: string): string {
   if (name === "NOTIFICATIONS.MD") {
     const globalPath = resolve(homedir(), ".agent-memory", "NOTIFICATIONS.md");
     if (raw !== globalPath) throw new ProtectedLogError(`notifications must be ~/.agent-memory/NOTIFICATIONS.md: ${path}`);
+  }
+  if (name === "HISTORY.MD") {
+    const globalPath = resolve(homedir(), ".agent-memory", "human", "history.md");
+    const projectPaths = root ? projectMemoryDirectories.map((directory) => resolve(root, directory, "human", "history.md")) : [];
+    if (raw !== globalPath && !projectPaths.includes(raw)) {
+      throw new ProtectedLogError(`human history must be ~/.agent-memory/human/history.md or history.md under a project human directory: ${path}`);
+    }
   }
   if (memoryDir && root) {
     const actual = existsSync(memoryDir) ? realpathSync(memoryDir) : resolve(memoryDir);

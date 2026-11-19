@@ -28,6 +28,22 @@ function wake(message, home, project) {
   return result.stdout;
 }
 
+test("wake lists the human profile and preferences", () => {
+  const { home, project } = makeHome();
+  try {
+    mkdirSync(join(home, ".agent-memory", "human"), { recursive: true });
+    writeFileSync(join(home, ".agent-memory", "human", "profile.md"), "# Profile\n", "utf8");
+    writeFileSync(join(home, ".agent-memory", "human", "preferences.md"), "# Preferences\n", "utf8");
+    const output = wake("hey luna", home, project);
+    assert.match(output, /human\/profile\.md/);
+    assert.match(output, /human\/preferences\.md/);
+    rmSync(join(home, ".agent-memory", "human", "preferences.md"));
+    assert.doesNotMatch(wake("hey luna", home, project), /human\/preferences\.md/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("WAKE.md references stay inside the agent and memory roots", () => {
   const { home, project } = makeHome();
   try {

@@ -207,6 +207,15 @@ function isMemoryFile(path: string): boolean {
   return normalized.startsWith(globalRoot) || normalized.split("/").some((part) => memorySegments.includes(part));
 }
 
+function humanFileReminder(payload: HookPayload, toolName: string): string | null {
+  if (toolName !== "Write") return null;
+  const input = payload.tool_input && typeof payload.tool_input === "object" && !Array.isArray(payload.tool_input) ? payload.tool_input as Record<string, unknown> : {};
+  const target = String(input.file_path || input.path || input.filePath || "");
+  if (!target.replace(/\\/g, "/").includes("/human/")) return null;
+  if (existsSync(target)) return null;
+  return "Before creating this human file, check whether the fact fits profile.md, preferences.md, or context.md. Create a new file only when it is a distinct kind of information, and open it with a one-line purpose.";
+}
+
 function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cwd: string): void {
   if (toolName !== "Write") return;
   const input = payload.tool_input && typeof payload.tool_input === "object" && !Array.isArray(payload.tool_input) ? payload.tool_input as Record<string, unknown> : {};
@@ -283,6 +292,8 @@ export function dispatch(payload: HookPayload): HookResult {
     } catch { /* wake detection fails open */ }
   }
   if (event === "PreToolUse") {
+    const humanReminder = humanFileReminder(payload, toolName);
+    if (humanReminder) contexts.push(humanReminder);
     maybeSnapshotBeforeOverwrite(payload, toolName, cwd);
     collectResult(runHook("guard", payload), blocks, contexts);
     if (["Write", "Edit", "apply_patch"].includes(toolName)) collectResult(runHook("trace_intent", payload), blocks, contexts);

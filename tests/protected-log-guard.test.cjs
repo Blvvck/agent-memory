@@ -20,6 +20,13 @@ function bashPayload(command) {
   };
 }
 
+test("human history is protected and needs the writer", () => {
+  const target = join(cwd, ".agent-memory", "human", "history.md");
+  assert.match(guardPayload({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path: target }, cwd }), /protected|routing/i);
+  const writer = join(__dirname, "..", "dist", "agent-log.js");
+  assert.equal(guardPayload({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: `node ${writer} --file ${target}`, cwd } }), null);
+});
+
 test("a project reached through a symlink still has a canonical memory path", () => {
   const real = mkdtempSync(join(tmpdir(), "agent-symlink-"));
   try {

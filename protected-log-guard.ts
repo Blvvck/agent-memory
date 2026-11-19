@@ -3,7 +3,7 @@ import { basename, delimiter, dirname, extname, isAbsolute, resolve, sep } from 
 import { canonicalProtectedLogPath, ProtectedLogError } from "./protected-log";
 
 const backslashEscapes = process.platform !== "win32";
-const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD"]);
+const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD", "HISTORY.MD"]);
 const patchPath = /^\*\*\* (?:Update|Add|Delete) File: (.+?)\s*$/gm;
 const readOnlyCommands = new Set(["cat", "head", "tail", "grep", "rg", "wc", "stat", "file", "ls", "cut", "tr", "trace-search", "pwd", "true", "false", "echo", "printf", "test", "["]);
 const neutralCommands = new Set(["cd"]);

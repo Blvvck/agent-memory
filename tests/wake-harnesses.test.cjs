@@ -103,6 +103,25 @@ test("Antigravity blocks a direct write to a protected log", () => {
   }
 });
 
+test("creating a new human file returns the check-first reminder", () => {
+  const { home, project } = makeHome();
+  try {
+    const script = [
+      `const { dispatchWithSource } = require(${JSON.stringify(join(root, "dist", "hooks", "core", "dispatch.js"))});`,
+      "const result = dispatchWithSource('cursor', {",
+      "  hook_event_name: 'PreToolUse', session_id: 'sess-human', cwd: process.argv[1],",
+      "  tool_name: 'Write', tool_input: { file_path: process.argv[1] + '/.agent-memory/human/newfile.md' },",
+      "});",
+      "process.stdout.write(JSON.stringify(result.contexts));",
+    ].join("\n");
+    const result = spawnSync(process.execPath, ["-e", script, project], { encoding: "utf8", env: environment(home) });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(JSON.parse(result.stdout).join("\n"), /check whether the fact fits/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("OpenCode plugin callbacks inject wake context and close on deletion", () => {
   const { home, project } = makeHome();
   try {

@@ -109,6 +109,8 @@ Read these files first, in this order, and only in slices. Full reads of growing
 | `brain/memory.md` | top 80 lines | what it did, newest first |
 | `brain/learnings.md` | top 50 lines | recent mistakes to avoid |
 | `brain/patterns.md` | top 50 lines | recent methods that worked |
+| `human/profile.md` | top 30 lines | who the agent works with |
+| `human/preferences.md` | top 30 lines | how they want work done |
 
 Named subagents with a body receive this same wake contract. Bodies may be shared under `~/.agent-memory/agents/<name>/` or scoped to a project under `agents/<name>/` inside its selected memory directory; a project body overrides a shared body with the same name. Spawn instructions must name every file above by that body's actual path. If it has `WAKE.md`, include that file and every file path it lists. The hook enforces this contract only when the spawn resolves to a registered named body; ordinary harness subagents pass through.
 

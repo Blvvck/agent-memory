@@ -118,8 +118,13 @@ export function wakeContext(prompt: string, cwd: string): string | null {
       }
     } catch { wakeReadError = true; }
   }
+  const humanRoot = join(homedir(), ".agent-memory", "human");
+  const humanReads = ["profile.md", "preferences.md"]
+    .filter((file) => existsSync(join(humanRoot, file)))
+    .map((file) => `~/.agent-memory/human/${file}`);
   const reads = [
     ...agentReads,
+    ...humanReads,
     ...projectReads,
     ...(existsSync(notifications) ? [notifications] : []),
   ];

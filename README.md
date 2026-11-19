@@ -38,6 +38,8 @@ At session start the agent reads a fixed slice of its body, newest material firs
 | `brain/memory.md` | top 80 lines | what happened and what is next |
 | `brain/learnings.md` | top 50 lines | recent mistakes to avoid |
 | `brain/patterns.md` | top 50 lines | recent methods that worked |
+| `~/.agent-memory/human/profile.md` | top 30 lines | who the agent works with |
+| `~/.agent-memory/human/preferences.md` | top 30 lines | how they want work done |
 
 The agent can read further into any file, open `core/` or `mind/` for evidence and judgment, read `WAKE.md` and every file it names, and for project work read the selected `CONTEXT.md` and recent `ACTIVITY.md`. It can check `NOTIFICATIONS.md` when a request may affect the task, and use `agent-memory sessions --search` when the written memory lacks a detail the work needs.
 

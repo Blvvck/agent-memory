@@ -30,6 +30,7 @@ test("setup can run twice on the same project", () => {
     assert.equal(first.status, 0, first.stderr || first.stdout);
     const marker = join(project, ".agent-memory-layout");
     assert.equal(readFileSync(marker, "utf8").trim(), ".agent-memory");
+    assert.ok(existsSync(join(home, ".agent-memory", "human", "profile.md")), "human scaffold missing");
     const second = init(home, project, []);
     assert.equal(second.status, 0, second.stderr || second.stdout);
     assert.match(second.stdout, /Existing files stay in place/);
