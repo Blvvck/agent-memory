@@ -207,7 +207,10 @@ function titleEnd(profile: string): number {
     } else if (!fenceChar && indent <= 3 && /^#\s+\S/.test(trimmed)) {
       return offset + line.length;
     }
-    previousIsParagraph = !fenceChar && trimmed.length > 0 && !/^[>#]/.test(trimmed) && !marker;
+    previousIsParagraph = !fenceChar && trimmed.length > 0
+      && !/^[>#]/.test(trimmed)
+      && !/^([-*+]|\d+[.)])\s/.test(trimmed)
+      && !marker;
     offset += line.length + 1;
   }
   return -1;
