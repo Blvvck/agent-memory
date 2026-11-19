@@ -190,7 +190,8 @@ function titleEnd(profile: string): number {
   let offset = 0;
   for (const line of profile.split("\n")) {
     const trimmed = line.trimStart();
-    const marker = /^(`{3,}|~{3,})/.exec(trimmed);
+    const indent = line.length - trimmed.length;
+    const marker = indent <= 3 ? /^(`{3,}|~{3,})/.exec(trimmed) : null;
     if (marker) {
       const run = marker[1];
       if (!fenceChar) {
@@ -200,7 +201,7 @@ function titleEnd(profile: string): number {
         fenceChar = "";
         fenceLength = 0;
       }
-    } else if (!fenceChar && /^#\s+\S/.test(trimmed)) {
+    } else if (!fenceChar && indent <= 3 && /^#\s+\S/.test(trimmed)) {
       return offset + line.length;
     }
     offset += line.length + 1;
