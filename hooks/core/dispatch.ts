@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { STATE_DIR, appendEvent, updateCurrentSession } from "../../common";
 import { projectMemoryRoot } from "../../memory-paths";
 import { syncSkills } from "../../skills";
@@ -210,9 +210,19 @@ function isMemoryFile(path: string): boolean {
 function humanFileReminder(payload: HookPayload, toolName: string): string | null {
   if (toolName !== "Write") return null;
   const input = payload.tool_input && typeof payload.tool_input === "object" && !Array.isArray(payload.tool_input) ? payload.tool_input as Record<string, unknown> : {};
-  const target = String(input.file_path || input.path || input.filePath || "");
-  if (!target.replace(/\\/g, "/").includes("/human/")) return null;
-  if (existsSync(target)) return null;
+  const raw = String(input.file_path || input.path || input.filePath || "");
+  if (!raw) return null;
+  const cwd = String(payload.cwd || process.cwd());
+  const target = isAbsolute(raw) ? raw : resolve(cwd, raw);
+  const normalized = target.replace(/\\/g, "/");
+  const roots = [join(homedir(), ".agent-memory", "human")];
+  try { roots.push(join(projectMemoryRoot(cwd), "human")); }
+  catch { /* no project scope */ }
+  const inHuman = roots.some((root) => {
+    const rootPath = root.replace(/\\/g, "/");
+    return normalized === rootPath || normalized.startsWith(`${rootPath}/`);
+  });
+  if (!inHuman || existsSync(target)) return null;
   return "Before creating this human file, check whether the fact fits profile.md, preferences.md, or context.md. Create a new file only when it is a distinct kind of information, and open it with a one-line purpose.";
 }
 

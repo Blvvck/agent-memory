@@ -16,8 +16,11 @@ function candidatePath(value: unknown, cwd: string): string | null {
 }
 
 function protectedPath(path: string): boolean {
-  if (!protectedNames.has(basename(path).toUpperCase())) return false;
-  return path.split(/[\\/]/).some((part) => [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"].includes(part));
+  const name = basename(path).toUpperCase();
+  if (!protectedNames.has(name)) return false;
+  const normalized = path.replace(/\\/g, "/");
+  if (name === "HISTORY.MD" && !normalized.includes("/human/")) return false;
+  return normalized.split("/").some((part) => [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"].includes(part));
 }
 
 function pathsFromPayload(payload: Record<string, unknown>, toolName: string): string[] {

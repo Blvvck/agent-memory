@@ -110,7 +110,7 @@ test("creating a new human file returns the check-first reminder", () => {
       `const { dispatchWithSource } = require(${JSON.stringify(join(root, "dist", "hooks", "core", "dispatch.js"))});`,
       "const result = dispatchWithSource('cursor', {",
       "  hook_event_name: 'PreToolUse', session_id: 'sess-human', cwd: process.argv[1],",
-      "  tool_name: 'Write', tool_input: { file_path: process.argv[1] + '/.agent-memory/human/newfile.md' },",
+      "  tool_name: 'Write', tool_input: { file_path: process.env.HOME + '/.agent-memory/human/newfile.md' },",
       "});",
       "process.stdout.write(JSON.stringify(result.contexts));",
     ].join("\n");

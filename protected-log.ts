@@ -24,7 +24,7 @@ interface Entry {
   strict: boolean;
 }
 
-const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD"]);
+const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD", "HISTORY.MD"]);
 const projectMemoryDirectories = [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"];
 const invalidSessionParts = ["unknown", "current", "placeholder", "dummy", "test", "fake"];
 const invalidTraceValues = new Set(["todo", "tbd", "pending", "add later", "placeholder"]);
@@ -114,7 +114,8 @@ export function canonicalProtectedLogPath(path: string): string {
   if (name === "HISTORY.MD") {
     const globalPath = resolve(homedir(), ".agent-memory", "human", "history.md");
     const projectPaths = root ? projectMemoryDirectories.map((directory) => resolve(root, directory, "human", "history.md")) : [];
-    if (raw !== globalPath && !projectPaths.includes(raw)) {
+    const isManifestProjectPath = !root && memoryDir && raw === resolve(memoryDir, "human", "history.md");
+    if (raw !== globalPath && !projectPaths.includes(raw) && !isManifestProjectPath) {
       throw new ProtectedLogError(`human history must be ~/.agent-memory/human/history.md or history.md under a project human directory: ${path}`);
     }
   }

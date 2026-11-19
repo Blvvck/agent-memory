@@ -20,6 +20,14 @@ function bashPayload(command) {
   };
 }
 
+test("history protection is location specific", () => {
+  const write = (file_path) => guardPayload({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path }, cwd });
+  assert.equal(write("/tmp/unrelated/history.md"), null);
+  assert.equal(write(join(cwd, ".agent-memory", "agents", "Luna", "core", "history.md")), null);
+  assert.match(write(join(cwd, ".agent-memory", "human", "history.md")), /protected|routing/i);
+  assert.throws(() => canonicalProtectedLogPath("/tmp/unrelated/history.md"), /human history/);
+});
+
 test("human history is protected and needs the writer", () => {
   const target = join(cwd, ".agent-memory", "human", "history.md");
   assert.match(guardPayload({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path: target }, cwd }), /protected|routing/i);
