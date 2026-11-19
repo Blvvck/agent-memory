@@ -129,6 +129,20 @@ function segmentReadOnly(segment: string): boolean {
   return readOnlyCommands.has(program);
 }
 
+function isWriterCommand(command: string): boolean {
+  const segments = splitShell(command);
+  if (!segments?.length) return false;
+  return segments.every((segment) => {
+    const words = segment.trim().split(/\s+/).filter(Boolean);
+    let index = 0;
+    while (index < words.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[index])) index++;
+    const program = words[index] ?? "";
+    const base = program.split(/[\\/]/).pop() ?? "";
+    if (base === "agent-log" || base === "agent-log.js") return true;
+    return base === "node" && (words[index + 1] ?? "").includes("agent-log");
+  });
+}
+
 function shellMutates(command: string): boolean {
   const segments = splitShell(command);
   return !segments || !segments.length || segments.some((segment) => !segmentReadOnly(segment));
@@ -140,6 +154,7 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
   if (toolName === "Bash") {
     const input = payload.tool_input && typeof payload.tool_input === "object" ? payload.tool_input as Record<string, unknown> : {};
     const command = String(input.command || input.cmd || input.script || "");
+    if (isWriterCommand(command)) return null;
     if ([...protectedNames].some((name) => command.toUpperCase().includes(name)) && shellMutates(command)) {
       return `Direct shell mutation of protected agent memory is blocked. Use the installed agent-log writer for protected logging. ${command}`;
     }

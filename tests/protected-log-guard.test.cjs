@@ -17,6 +17,12 @@ function bashPayload(command) {
   };
 }
 
+test("the writer may name a protected log, a shell redirect may not", () => {
+  const writer = `agent-log --file ${memoryPath} --content x --trace "none (new topic)" --agent Test --cli cli --session-id abc123 --project p`;
+  assert.equal(guardPayload(bashPayload(writer)), null);
+  assert.match(guardPayload(bashPayload(`echo x >> ${memoryPath}`)), /Direct shell mutation/);
+});
+
 test("the guard blocks as a subprocess, which is how non-Claude harnesses call it", () => {
   const blocked = spawnSync(process.execPath, [script], {
     input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path: join(cwd, memoryPath) }, cwd }),
