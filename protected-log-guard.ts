@@ -107,9 +107,10 @@ function installedWriter(program: string, cwd = process.cwd()): boolean {
   if (!candidate || !existsSync(candidate)) return false;
   try {
     const stats = statSync(candidate);
-    if (!stats.isFile() || stats.size > 1_048_576) return false;
+    if (!stats.isFile()) return false;
     const installed = resolve(__dirname, "agent-log.js");
     if (realpathSync(candidate) === realpathSync(installed)) return true;
+    if (stats.size > 1_048_576) return false;
     const installedStats = statSync(installed);
     if (stats.size !== installedStats.size) return false;
     return readFileSync(candidate).equals(readFileSync(installed));
