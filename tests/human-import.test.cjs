@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn, spawnSync } = require("node:child_process");
-const { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
@@ -110,13 +110,13 @@ test("import writes nothing without --yes", () => {
   }
 });
 
-test("a live lock owner is not reclaimed", () => {
+test("a live requester blocks the import", () => {
   const { home, source } = setup();
-  const lock = join(home, ".agent-memory", "human", ".import.lock");
+  const queue = join(home, ".agent-memory", "human", ".import-queue");
   const destination = join(home, ".agent-memory", "human", "profile.md");
   try {
-    mkdirSync(lock, { recursive: true });
-    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid }), "utf8");
+    mkdirSync(queue, { recursive: true });
+    mkdirSync(join(queue, `0-${process.pid}-test`));
     const result = run(home, ["import", "--from", source, "--yes"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /Another import is running/);
@@ -126,15 +126,13 @@ test("a live lock owner is not reclaimed", () => {
   }
 });
 
-test("a lock with a dead owner is reclaimed", () => {
+test("a dead requester is cleared", () => {
   const { home, source } = setup();
-  const lock = join(home, ".agent-memory", "human", ".import.lock");
+  const queue = join(home, ".agent-memory", "human", ".import-queue");
   const destination = join(home, ".agent-memory", "human", "profile.md");
   try {
-    mkdirSync(lock, { recursive: true });
-    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: 2_147_483_647 }), "utf8");
-    const old = new Date(Date.now() - 60_000);
-    utimesSync(lock, old, old);
+    mkdirSync(queue, { recursive: true });
+    mkdirSync(join(queue, "0-2147483647-test"));
     const result = run(home, ["import", "--from", source, "--yes"]);
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(readFileSync(destination, "utf8"), /I prefer short answers/);
@@ -159,15 +157,13 @@ test("a profile that already holds the import marker is not duplicated", () => {
   }
 });
 
-test("concurrent imports of one source append it once behind a dead lock", async () => {
+test("concurrent imports of one source append it once behind a dead request", async () => {
   const { home, source } = setup();
-  const lock = join(home, ".agent-memory", "human", ".import.lock");
+  const queue = join(home, ".agent-memory", "human", ".import-queue");
   const destination = join(home, ".agent-memory", "human", "profile.md");
   try {
-    mkdirSync(lock, { recursive: true });
-    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: 2_147_483_647 }), "utf8");
-    const old = new Date(Date.now() - 60_000);
-    utimesSync(lock, old, old);
+    mkdirSync(queue, { recursive: true });
+    mkdirSync(join(queue, "0-2147483647-test"));
     const codes = await Promise.all(Array.from({ length: 8 }, () => spawnAsync(home, ["import", "--from", source, "--yes"])));
     assert.ok(codes.every((code) => code === 0), `exit codes ${codes.join(",")}`);
     assert.equal(readFileSync(destination, "utf8").match(/I prefer short answers/g).length, 1);

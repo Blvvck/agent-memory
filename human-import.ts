@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -65,58 +65,29 @@ function sleepSync(milliseconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
-function reclaim(lock: string): void {
-  const trashed = `${lock}.stale-${process.pid}-${Date.now()}`;
-  try { renameSync(lock, trashed); }
-  catch { return; }
-  rmSync(trashed, { recursive: true, force: true });
-}
-
-function claim(path: string): boolean {
-  const staging = `${path}.init-${process.pid}-${Date.now()}`;
-  try {
-    mkdirSync(staging);
-    writeFileSync(join(staging, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
-    renameSync(staging, path);
-    return true;
-  } catch {
-    try { rmSync(staging, { recursive: true, force: true }); } catch { /* best effort */ }
-    return false;
-  }
-}
-
-function reclaimIfStale(path: string): void {
-  let pid: unknown;
-  try { pid = (JSON.parse(readFileSync(join(path, "owner.json"), "utf8")) as { pid?: unknown }).pid; }
-  catch { return; }
-  if (typeof pid !== "number") return;
-  try { process.kill(pid, 0); return; }
-  catch { /* dead owner */ }
-  reclaim(path);
-}
-
 function withLock<T>(run: () => T): T {
-  mkdirSync(humanRoot(), { recursive: true });
-  const lock = join(humanRoot(), ".import.lock");
-  const guard = join(humanRoot(), ".import.guard");
-  for (let attempt = 0; attempt < 100; attempt++) {
-    if (!claim(guard)) {
-      reclaimIfStale(guard);
-      sleepSync(50);
-      continue;
+  const queue = join(humanRoot(), ".import-queue");
+  mkdirSync(queue, { recursive: true });
+  const name = `${Date.now()}-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+  const mine = join(queue, name);
+  mkdirSync(mine);
+  try {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      let blocked = false;
+      for (const entry of readdirSync(queue).sort()) {
+        if (entry >= name) continue;
+        const pid = Number(entry.split("-")[1]);
+        if (Number.isFinite(pid)) {
+          try { process.kill(pid, 0); blocked = true; break; }
+          catch { /* dead requester */ }
+        }
+        try { rmSync(join(queue, entry), { recursive: true, force: true }); } catch { /* best effort */ }
+      }
+      if (!blocked) return run();
+      sleepSync(100);
     }
-    let held = false;
-    try {
-      if (existsSync(lock)) reclaimIfStale(lock);
-      if (!existsSync(lock)) held = claim(lock);
-    } finally {
-      try { rmSync(guard, { recursive: true, force: true }); } catch { /* best effort */ }
-    }
-    if (held) {
-      try { return run(); }
-      finally { try { rmSync(lock, { recursive: true, force: true }); } catch { /* best effort */ } }
-    }
-    sleepSync(100);
+  } finally {
+    try { rmSync(mine, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   fail("Another import is running. Try again in a moment.");
 }
