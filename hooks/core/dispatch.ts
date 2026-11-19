@@ -168,24 +168,36 @@ function overwriteSnapshotMarker(scope: string): string {
   return join(STATE_DIR, `overwrite-snapshot-${scope}`);
 }
 
-function claimSnapshot(scope: string): boolean {
+export function claimOverwriteSnapshot(scope: string): boolean {
   const marker = overwriteSnapshotMarker(scope);
   try {
     mkdirSync(STATE_DIR, { recursive: true });
     mkdirSync(marker);
     return true;
   } catch {
-    try {
-      if (Date.now() - statSync(marker).mtimeMs < 300_000) return false;
-    } catch {
-      return false;
+    const guard = `${marker}.lock`;
+    try { mkdirSync(guard); }
+    catch {
+      try {
+        if (Date.now() - statSync(guard).mtimeMs < 300_000) return false;
+        rmdirSync(guard);
+      } catch { return false; }
+      try { mkdirSync(guard); }
+      catch { return false; }
     }
-    const stolen = `${marker}.stale-${process.pid}-${Date.now()}`;
-    try { renameSync(marker, stolen); }
-    catch { return false; }
-    try { rmdirSync(stolen); } catch { /* best effort */ }
-    try { mkdirSync(marker); return true; }
-    catch { return false; }
+    try {
+      let stale = true;
+      try { stale = Date.now() - statSync(marker).mtimeMs >= 300_000; }
+      catch { stale = true; }
+      if (!stale) return false;
+      const stolen = `${marker}.stale-${process.pid}-${Date.now()}`;
+      try { renameSync(marker, stolen); } catch { /* already gone */ }
+      try { rmdirSync(stolen); } catch { /* best effort */ }
+      try { mkdirSync(marker); return true; }
+      catch { return false; }
+    } finally {
+      try { rmdirSync(guard); } catch { /* best effort */ }
+    }
   }
 }
 
@@ -208,7 +220,7 @@ function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cw
     try { key = createHash("sha256").update(projectMemoryRoot(cwd)).digest("hex").slice(0, 16); }
     catch { key = "project"; }
   }
-  if (!claimSnapshot(key)) return;
+  if (!claimOverwriteSnapshot(key)) return;
   try { snapshotScopeInBackground(isGlobal ? "global" : "project"); }
   catch { /* backups fail open */ }
 }
