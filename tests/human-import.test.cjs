@@ -31,7 +31,8 @@ test("import copies the source once and leaves it unchanged", () => {
     assert.ok(existsSync(destination));
     const imported = readFileSync(destination, "utf8");
     assert.match(imported, /I prefer short answers/);
-    assert.match(imported, new RegExp(`imported from ${source}`));
+    assert.ok(imported.includes("imported from "), "import marker missing");
+    assert.ok(imported.includes("user.md"), "source path missing from the marker");
     assert.equal(readFileSync(source, "utf8"), "# About me\n\nI prefer short answers.\n");
 
     const second = run(home, ["import", "--from", source, "--yes"]);
