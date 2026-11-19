@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
-const { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
@@ -33,6 +33,18 @@ test("setup can run twice on the same project", () => {
     const second = init(home, project, []);
     assert.equal(second.status, 0, second.stderr || second.stdout);
     assert.match(second.stdout, /Existing files stay in place/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("codex hooks land where codex reads them", () => {
+  const { home, project } = setup();
+  try {
+    const run = init(home, project, ["--harness", "codex"]);
+    assert.equal(run.status, 0, run.stderr || run.stdout);
+    assert.ok(existsSync(join(home, ".codex", "hooks.json")), "user-level hooks missing");
+    assert.ok(!existsSync(join(project, ".codex", "hooks.json")), "project-level hooks were written");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

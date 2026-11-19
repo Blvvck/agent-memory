@@ -1,8 +1,11 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
 const { spawnSync } = require("node:child_process");
+const { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } = require("node:fs");
+const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { guardPayload } = require("../dist/protected-log-guard.js");
+const { canonicalProtectedLogPath } = require("../dist/protected-log.js");
 
 const script = join(__dirname, "..", "dist", "protected-log-guard.js");
 const cwd = "/tmp/ag-guard-project";
@@ -16,6 +19,23 @@ function bashPayload(command) {
     tool_input: { command, cwd: "/tmp/project" },
   };
 }
+
+test("a project reached through a symlink still has a canonical memory path", () => {
+  const real = mkdtempSync(join(tmpdir(), "agent-symlink-"));
+  try {
+    const project = join(real, "project");
+    const brain = join(project, ".agent-memory", "agents", "Proof", "brain");
+    mkdirSync(brain, { recursive: true });
+    writeFileSync(join(project, ".agent-memory-layout"), ".agent-memory\n");
+    writeFileSync(join(brain, "memory.md"), "# memory\n\n## Work Log\n\n", "utf8");
+    spawnSync("git", ["init", "-q", "."], { cwd: project });
+    const link = join(real, "link");
+    symlinkSync(project, link);
+    assert.doesNotThrow(() => canonicalProtectedLogPath(join(link, ".agent-memory", "agents", "Proof", "brain", "memory.md")));
+  } finally {
+    rmSync(real, { recursive: true, force: true });
+  }
+});
 
 test("the writer may name a protected log, a shell redirect may not", () => {
   const writer = `agent-log --file ${memoryPath} --content x --trace "none (new topic)" --agent Test --cli cli --session-id abc123 --project p`;
