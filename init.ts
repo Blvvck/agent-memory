@@ -10,6 +10,7 @@ import { runSessions } from "./sessions";
 import { runCrons } from "./crons";
 import { backupAvailable, runBackup, snapshotScope } from "./backup";
 import { runDoctor } from "./doctor";
+import { runHuman } from "./human-import";
 
 type Harness = "claude" | "codex" | "opencode" | "antigravity" | "cursor";
 type Layout = "standard" | "claude" | "codex" | "opencode" | "antigravity" | "cursor";
@@ -199,6 +200,7 @@ Commands:
   agent-memory crons <list|add|approve|pause|resume|delete|run|logs|daemon>
   agent-memory backup <status|snapshot|list|restore|diff|prune>
   agent-memory doctor
+  agent-memory human import [--from PATH] [--dry-run] [--yes]
 `);
 }
 
@@ -715,6 +717,10 @@ async function main(): Promise<void> {
   }
   if (process.argv[2] === "doctor") {
     runDoctor(process.argv.slice(3));
+    return;
+  }
+  if (process.argv[2] === "human") {
+    runHuman(process.argv.slice(3));
     return;
   }
   const options = parseOptions(process.argv.slice(2));

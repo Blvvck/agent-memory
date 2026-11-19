@@ -55,6 +55,12 @@ Read the top 30 lines of `profile.md` and the top 30 of `preferences.md`. Open `
 
 A harness may already keep a user file of its own. Leave it where it is and do not write into it; two copies drift. If it holds durable facts, import them once into `human/profile.md` with the person's agreement, then treat this directory as the memory of record.
 
+```
+agent-memory human import --from ~/.cursor/user.md --yes
+```
+
+Without `--from`, the known harness locations are checked. The command writes nothing without `--yes`, marks what it imported so a second run skips it, and never modifies the source file.
+
 ## Teams
 
 Human memory is per person. When the team version ships, the directory becomes `human/<identity>/` so one person's memory is never read by another's session.

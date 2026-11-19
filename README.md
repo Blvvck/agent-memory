@@ -169,6 +169,7 @@ The full command reference, written for agents, is in [`protocols/tools.md`](pro
 | `agent-memory sessions` | List or search session transcripts across harnesses | `--list`, `--search`, `--harness`, `--project`, `--since`, `--limit`, `--context`, `--json` |
 | `agent-memory crons` | Schedule command or agent runs; list, approve, pause, run, and inspect them | `list`, `add`, `approve`, `pause`, `resume`, `delete`, `run`, `logs`, `daemon` |
 | `agent-memory backup` | Snapshot, list, restore, roll back, or prune version history | `status`, `snapshot`, `list`, `restore`, `diff`, `prune` |
+| `agent-memory human` | Copy durable facts from an existing harness `user.md` into the human profile | `import`, `--from`, `--dry-run`, `--yes` |
 | `agent-session` | Print the current session label, or emit JSON for hooks | `--json`, `--field`, `--source` |
 | `agent-memory-heartbeat` | Recover stale sessions and report memory that still needs syncing | `--watch` |
 
