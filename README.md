@@ -4,7 +4,7 @@ Persistent memory and a reusable body for AI agents.
 
 An agent starts every session blank. This package gives it a body of Markdown files and a loop that carries context across sessions and across harnesses: wake, work, record what happened, and link the record to what came before. The next session reads those files, follows the links to the decisions behind them, and continues instead of starting over.
 
-The memory is plain Markdown, so you can read it, diff it, and fix it. The same files work under Claude Code, Codex, OpenCode, Antigravity, and Cursor, so a decision made in one harness is there when you open another. The result is an agent that can pick up a project after a week, explain why a decision was made, and carry the same context from one tool to the next without a manual handoff.
+The memory is plain Markdown, so you can read it, diff it, and fix it. The same files work under Claude Code, Codex, OpenCode, Antigravity, and Cursor, so a decision made in one harness is there when you open another. An agent that picks up a project after a week can explain why a decision was made, and the next harness you open already has the context.
 
 ## Quick start
 
@@ -23,7 +23,7 @@ Run it from the project you want to equip. Setup creates `~/.agent-memory/`, add
 
 ## How it works
 
-The loop is wake, work, and sync. The hooks make each step concrete.
+The loop is wake, work, and sync. The hooks put a checkpoint on each step.
 
 ### Wake
 
@@ -39,7 +39,7 @@ At session start the agent reads a fixed slice of its body, newest material firs
 | `brain/learnings.md` | top 50 lines | recent mistakes to avoid |
 | `brain/patterns.md` | top 50 lines | recent methods that worked |
 
-The slice is a starting point. The agent can read further into any file, open `core/` or `mind/` for evidence and judgment, read `WAKE.md` and every file it names, and for project work read the selected `CONTEXT.md` and recent `ACTIVITY.md`. It can check `NOTIFICATIONS.md` when a request may affect the task, and use `agent-memory sessions --search` when the written memory lacks a detail the work needs.
+The agent can read further into any file, open `core/` or `mind/` for evidence and judgment, read `WAKE.md` and every file it names, and for project work read the selected `CONTEXT.md` and recent `ACTIVITY.md`. It can check `NOTIFICATIONS.md` when a request may affect the task, and use `agent-memory sessions --search` when the written memory lacks a detail the work needs.
 
 ### Work
 
@@ -47,14 +47,14 @@ There is no fixed number of syncs. The obligation is to write after each meaning
 
 - A soft reminder appears when weighted activity since the last note crosses 9 points. Edits and writes count 3, task delegation 2, shell commands 1.5, fetches and searches 1, reads 0.5, and glob or grep 0.25. The reminder appears once per 9-point bucket, not on every tool call.
 - At Stop, the hook checks for missing session tags, missing traces, and missing reciprocal links. It asks for a sync when activity since the last brain note is at least 9 points, when the newest memory entry is more than 24 hours old, or when a prior session is still unsynced. A score of 15 or more is labeled heavy.
-- Before compaction, the hook asks for the objective, decisions and reasons, completed work, remaining steps, and relevant paths, because that is the state compaction can erase.
+- Before compaction, the hook asks for the objective, decisions and reasons, completed work, remaining steps, and relevant paths, because that's the state compaction can erase.
 - A write to a tracked note without a trace gets a reminder at write time, and unresolved traces are listed again at Stop.
 
-The agent can sync more often than the checkpoints; the checkpoints exist so a long session cannot drift into silence. Each check is capped: one soft reminder per 9-point bucket, one Stop check per transcript snapshot, one pre-compaction check per snapshot, and one session-end check per snapshot.
+The agent can sync more often than the checkpoints; the checkpoints exist so a long session can't drift into silence. Each check is capped: one soft reminder per 9-point bucket, one Stop check per transcript snapshot, one pre-compaction check per snapshot, and one session-end check per snapshot.
 
 ### Compaction and session end
 
-Compaction is the point where context is most likely to disappear. The pre-compaction hook writes the sync reminder and takes a background snapshot when the scope is not git-tracked.
+Compaction is the point where context is most likely to disappear. The pre-compaction hook writes the sync reminder and takes a background snapshot when the scope isn't git-tracked.
 
 Session end is whatever signal the harness provides:
 
@@ -66,9 +66,9 @@ Session end is whatever signal the harness provides:
 | Cursor | `sessionEnd` |
 | Antigravity | no end event; stale-session recovery handles it |
 
-At `SessionEnd` the hook takes a snapshot and checks whether the agent updated its brain file and the project `ACTIVITY.md` since the last meaningful activity. If either is missing and activity crossed the 9-point threshold, it writes an unsynced marker under `~/.agent-memory/hooks/shared/state/brain-sync/`. The next `SessionStart` surfaces that marker as an “unsynced session catch-up” before unrelated work, and `agent-memory-heartbeat` recovers sessions that have been active with no event for two hours; `--watch` scans every ten minutes.
+At `SessionEnd` the hook takes a snapshot and checks whether the agent updated its brain file and the project `ACTIVITY.md` since the last meaningful activity. If either is missing and activity crossed the 9-point threshold, it writes an unsynced marker under `~/.agent-memory/hooks/shared/state/brain-sync/`. The next `SessionStart` surfaces that marker as an “unsynced session catch-up” before unrelated work, and `agent-memory-heartbeat` recovers sessions active with no event for two hours; `--watch` scans every ten minutes.
 
-The hooks cannot force a model to write a useful note, so the enforcement is visibility: a session without a sync leaves a marker that the next session and the heartbeat can see, and the marker stays until the work is reconciled. That is the backstop for a closed laptop, a crash, or a harness that never sent an end event.
+The hooks can't force a model to write a useful note. What they can do is leave a marker when a session ends unsynced, and the next session and the heartbeat both see it until the work is reconciled. That is the backstop for a closed laptop, a crash, or a harness that never sent an end event.
 
 Entries follow one format so they stay sortable and attributable:
 
@@ -82,7 +82,7 @@ The full procedures are in [`protocols/`](protocols/README.md): [session lifecyc
 
 ## Traces
 
-Each entry points back to the older entry it continues, and the writer adds a forward pointer to that older entry. A backward trace runs from the newer note to the older note it relates to, so it records the predecessor the new work was written against. A forward trace runs the other way, from the older note to the newer note that referenced it, so it records that later work returned to that note. When the link is causal, the pair shows the reasoning behind a decision and the work that followed; when it is a correction or a revisit, the pair still records that the two notes belong together.
+Each entry points back to the older entry it continues, and the writer adds a forward pointer to that older entry. A backward trace runs from the newer note to the older note it relates to, so it records the predecessor the new work was written against. A forward trace runs the other way, from the older note to the newer note that referenced it, so it records that later work returned to that note. When the link is causal, the pair shows the reasoning behind a decision and the work that followed; when it's a correction or a revisit, the pair still records that the two notes belong together.
 
 ```text
 [2026-08-05T14:32:00Z] [api] @Luna [session:claude:abc12345]: Moved the session index to SQLite
@@ -92,7 +92,7 @@ Each entry points back to the older entry it continues, and the writer adds a fo
 - ↪ trace-forward: [2026-08-05T14:32:00Z] [api] @Luna [session:claude:abc12345]: Moved the session index to SQLite
 ```
 
-An entry with many forward traces is one later work kept returning to, which is a useful signal that it holds a decision or fact that still matters. An entry with none has not been connected yet or was a dead end. The tool does not rank entries by trace count; the graph is evidence rather than a score, and you can follow it backward from a decision to the earlier notes that informed it. `trace-search <file> <keyword...>` finds the older entries worth linking to before you write.
+An entry with many forward traces is one later work kept returning to, which is a useful signal that it holds a decision or fact that still matters. An entry with none hasn't been connected yet or was a dead end. The tool doesn't rank entries by trace count; the graph is evidence rather than a score, and you can follow it backward from a decision to the earlier notes that informed it. `trace-search <file> <keyword...>` finds the older entries worth linking to before you write.
 
 ## Agent bodies
 
@@ -124,33 +124,33 @@ agents/<name>/
     └── questions.md   what it asks before acting
 ```
 
-Each file answers a different question, so the agent gets identity, role, relationships, beliefs, session history, corrections, methods, evidence, and judgment in the same context. A single prompt gives the model one instruction; this body gives it a consistent standpoint from which to interpret the work.
+Each file answers a different question, so a session starts with a role, a history, and a set of beliefs already in context, rather than one instruction.
 
 ## Why the history matters
 
 Every agent body here has a past: a childhood, a career, relationships, and the decisions that shaped how the agent works.
 
-What determines the quality of the work you get from a model in an active session is the context window and the patterns it activates in the model's fixed weights. The weights are set before the session begins and contain what the model learned; the prompt, the files the agent reads, and everything the model generates from them decide which of those learned patterns become active. Those tokens become vectors, each layer computes queries, keys, and values, attention builds a weight matrix over the context, and the KV cache keeps the keys and values for tokens already processed. In mixture-of-experts models a router selects a subset of expert networks, and because the weights do not change, the context is what changes which parts of that fixed network do the work.
+What determines the quality of the work you get from a model in an active session is the context window and the patterns it activates in the model's fixed weights. The weights are set before the session begins and contain what the model learned; the prompt, the files the agent reads, and everything the model generates from them decide which of those learned patterns become active. Those tokens become vectors, each layer computes queries, keys, and values, attention builds a weight matrix over the context, and the KV cache keeps the keys and values for tokens already processed. In mixture-of-experts models a router selects a subset of expert networks, and because the weights don't change, the context is what changes which parts of that fixed network do the work.
 
 The body carries that past into the context window at every wake, which is why the details are specific: a childhood, mentors, a college degree, academic papers, hobbies, and real jobs all shape the associations the session can reach. A body that says the agent was a backend engineer on the team that built Azure at Microsoft sits near the model's learned patterns for hyperscale systems, reliability reviews, incident response, and API design, so the work starts from a different place than a body that says "helpful assistant."
 
 A thin or contradictory history produces the opposite: the model falls back on the average of everything it has seen, which is where generic work comes from, and a poor history can pull the session toward careless patterns. The KV cache lasts one session and is discarded, so the files are read again at every wake; the associations come from pretraining, and the body selects among them.
 
-We have used this structure for 11 to 12 months across roles and projects, and the pattern we keep seeing is that specific, coherent bodies produce more consistent judgment than a blank body or a generic assistant prompt. We have not isolated that effect from model changes, task difficulty, or reviewer bias, so treat it as a working observation rather than a measured law.
+I've used this structure for 11 to 12 months across roles and projects, and the pattern I keep seeing is that specific, coherent bodies produce more consistent judgment than a blank body or a generic assistant prompt. I haven't isolated that effect from model changes, task difficulty, or reviewer bias, so treat it as a working observation rather than a measured law.
 
 ## Global memory and project memory
 
 Global memory has one root: `~/.agent-memory/`. It holds the shared body, protocols, examples, and agent bodies. Harness files point to it instead of copying it: Claude imports `~/.agent-memory/AGENTS.md` from `~/.claude/CLAUDE.md`, Codex and OpenCode link their global `AGENTS.md` to it, and Antigravity links `~/.gemini/GEMINI.md`.
 
-That shared root is what makes several harnesses useful together. When Claude Code and Codex point at the same memory, work recorded in one is in the files the other reads at its next wake, and the reverse. The handoff is not a live session bridge; it is the same memory both harnesses read and write, which gives you one place for context even when you switch tools in the middle of a project.
+That shared root is what makes several harnesses useful together. When Claude Code and Codex point at the same memory, work recorded in one is in the files the other reads at its next wake, and the reverse. No session is bridged live. Both harnesses read and write the same memory, so switching tools mid-project keeps one place for context.
 
 Project memory is scoped to one project and may live in `.agent-memory/`, `.claude/`, `.codex/`, `.opencode/`, `.agents/`, or `.cursor/`. Setup records the choice in `.agent-memory-layout` and refuses a second scaffold in the same project. The difference is intentional: global memory is the agent's identity, so it stays harness-neutral, while project memory is a workspace that can follow whatever directory the project already uses.
 
-Setup creates files but does not commit them. By default the global and project scaffolds remain untracked. `--git tracked` stages them in their repositories; `--git ignored` adds the memory directory, the layout marker, and generated backups to `.gitignore`. Without the flag, setup does not touch git.
+Setup creates files but doesn't commit them. By default the global and project scaffolds remain untracked. `--git tracked` stages them in their repositories; `--git ignored` adds the memory directory, the layout marker, and generated backups to `.gitignore`. Without the flag, setup doesn't touch git.
 
 ## Named agents
 
-`agent-memory init --agent <name>` creates a body and adds it to the roster in `AGENTS.md`. In Claude Code, a message that starts with `Hey <name>`, `Hi <name>`, `Yo <name>`, `@<name>`, or `<name>,` triggers the wake hook, which injects the body files the session must read before responding. An explicit `@<name>` works anywhere in a message, and phrases such as `ask <name> to review this` or `wake <name>` trigger the same wake. A bare name in the middle of a sentence does not, which avoids waking an agent because its name appeared in passing.
+`agent-memory init --agent <name>` creates a body and adds it to the roster in `AGENTS.md`. In Claude Code, a message that starts with `Hey <name>`, `Hi <name>`, `Yo <name>`, `@<name>`, or `<name>,` triggers the wake hook, which injects the body files the session must read before responding. An explicit `@<name>` works anywhere in a message, and phrases such as `ask <name> to review this` or `wake <name>` trigger the same wake. A bare name in the middle of a sentence doesn't, which avoids waking an agent because its name appeared in passing.
 
 A project-scoped body with the same name overrides the shared body for that project. In harnesses without the wake hook, delegate through the harness's subagent support and pass the body paths described in [`protocols/subagent-wake.md`](protocols/subagent-wake.md). The roster in `AGENTS.md` lists the names available in the scope.
 
@@ -212,7 +212,7 @@ Runners: `claude`, `codex`, `opencode`, `antigravity`, and `cursor`. Override an
 
 ## Versions
 
-When restic is installed and a scope is not tracked in git, Agent Memory versions it automatically. That covers the global files under `~/.agent-memory/`, the project memory directory, and agent bodies inside either scope. Setup takes the first snapshot; session end and pre-compaction take another.
+When restic is installed and a scope isn't tracked in git, Agent Memory versions it automatically. That covers the global files under `~/.agent-memory/`, the project memory directory, and agent bodies inside either scope. Setup takes the first snapshot; session end and pre-compaction take another.
 
 A git-tracked scope keeps git as its history and is skipped. Snapshots deduplicate, and retention keeps the last 10 plus daily, weekly, and monthly. No password prompt appears; the key is generated under `~/.agent-memory/backup/`.
 
@@ -248,27 +248,29 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 
 ## Hooks
 
-`agent-memory init` merges one small hook or plugin into each selected harness, and every adapter calls the same dispatcher. The hooks record the session, inject memory context, and guard the protected files. Most failures log and continue so a broken hook cannot take the harness down, while the protected-log guard and the named-subagent spawn check block on purpose.
+`agent-memory init` merges one small hook or plugin into each selected harness, and every adapter calls the same dispatcher. The hooks record the session, inject memory context, and guard the protected files. Most failures log and continue so a broken hook can't take the harness down, while the protected-log guard and the named-subagent spawn check block on purpose.
 
 | Event | What the hook does |
 |-------|--------------------|
 | Session start | Rebuilds the skills index, recovers sessions whose end hook never ran, surfaces pending cron approvals, and injects the session context and brain-sync request. |
-| Prompt submitted | Captures the prompt for the session journal and brain-sync; in Claude Code it also detects a named-agent address and injects that body's required reads. |
+| Prompt submitted | Captures the prompt for the session journal and brain-sync, and detects a named-agent address in every harness. The required reads reach the model through whatever context channel the harness exposes. |
 | Before a tool call | Blocks direct edits to protected logs, reminds the agent when a tracked note is written without a trace, and checks a named subagent's prompt for the required body reads and logging instructions. |
 | After a tool call | Records the completed call in the session journal and advances the brain-sync request. |
-| Before compaction | Writes a memory reminder and takes a background snapshot when the scope is not git-tracked. |
+| Before compaction | Writes a memory reminder and takes a background snapshot when the scope isn't git-tracked. |
 | Stop | Checks for an unfinished trace and asks for the sync before the turn ends. |
 | Session end | Takes a background snapshot and closes the session record. |
 
-| Harness | Session start | Prompt | Pre-tool guard | Post-tool | Compaction | Stop | Session end | Named-agent wake |
-|---------|---------------|--------|----------------|-----------|------------|------|-------------|------------------|
-| Claude Code | yes | yes | yes | yes | yes | yes | yes | yes |
-| Codex | yes | yes | yes | yes | yes | yes | yes | no |
-| OpenCode | yes | yes | no | yes | yes | yes | yes | no |
-| Antigravity | yes | yes | yes | yes | no | yes | no | no |
-| Cursor | yes | yes | yes | yes | yes | yes | yes | no |
+| Harness | Session start | Prompt | Pre-tool guard | Post-tool | Compaction | Stop | Session end | Wake reminder | Wake delivery |
+|---------|---------------|--------|----------------|-----------|------------|------|-------------|---------------|---------------|
+| Claude Code | yes | yes | yes | yes | yes | yes | yes | yes | model context |
+| Codex | yes | yes | yes | yes | yes | yes | yes | yes | model context |
+| OpenCode | yes | yes | no | yes | yes | no | yes | yes | plugin context |
+| Antigravity | yes | yes | yes | yes | no | yes | no | yes | injected step |
+| Cursor | yes | yes | yes | yes | yes | yes | yes | yes | user message |
 
-OpenCode runs through a plugin rather than shell hooks, so it records and injects context but does not block a direct protected-file write before it happens. Antigravity exposes no compaction or session-end event. Named-agent wake is wired for Claude Code; in the other harnesses, delegate through the subagent support and pass the body paths from [`protocols/subagent-wake.md`](protocols/subagent-wake.md). A harness without hooks still uses the same memory; the hooks add automation and guards around it.
+Waking a named agent doesn't depend on hooks. `AGENTS.md` tells every harness to open the addressed body and become it, and a delegated subagent receives the same contract in its spawn prompt, so the behavior works even where no hook runs. The table records which harnesses also automate the reminder: Claude Code, Codex, and OpenCode add the wake protocol to the model context, Antigravity delivers it as an injected step, and Cursor's prompt hook exposes only a user-facing message, so its reminder reaches the person rather than the model.
+
+OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session on the idle event, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
 
 ## Agent bodies
 
@@ -278,17 +280,70 @@ A project-scoped body lives under `agents/<name>/` in the project's memory direc
 
 ## Platforms and dependencies
 
-macOS and Linux are the primary targets. Windows runs the Node CLI and restic. Harness `.cmd` shims run through `cmd.exe`, and arguments containing shell metacharacters are rejected; use a native executable or command mode. The backup password ACL is restricted to the current user with `icacls`.
+| Platform | Status | Notes |
+|---|---|---|
+| macOS | supported | developed and tested locally |
+| Linux | supported | tested on Ubuntu in CI |
+| Windows | supported | hooks run through `.cmd` shims, arguments with shell metacharacters are rejected, and the backup password ACL is restricted with `icacls` |
 
 Required: Node.js 18 or later. Optional: git for tracked scaffolds, restic for version history (`brew install restic`, `apt install restic`, `winget install restic`, or `scoop install restic`), and `sqlite3` or Node 22+ for Codex, OpenCode, and Antigravity session search.
 
 `agent-memory doctor` checks the platform, binaries, symlink support, and backup state.
 
+## What's next
+
+| Harness | Where it runs | How memory reaches it | Status |
+|---|---|---|---|
+| Claude Code | your machine, IDE, web | files and hooks | supported |
+| Codex | your machine, IDE, cloud | files and hooks, repo scope in cloud | supported |
+| OpenCode | your machine | files and plugin | supported |
+| Antigravity | your machine | files and hooks | supported |
+| Cursor | your machine, cloud | files and hooks | supported |
+| Devin Desktop | your machine | files and instructions | planned |
+| Gemini CLI | your machine | files and instructions | planned |
+| Qwen Code | your machine | files and instructions | planned |
+| Copilot CLI | your machine | files and instructions | planned |
+| Cline | your machine | files and instructions | planned |
+| Roo Code | your machine | files and instructions | planned |
+| Kilo Code | your machine | files and instructions | planned |
+| Kiro | your machine | files and instructions | planned |
+| Warp | your machine | files and instructions | planned |
+| Goose | your machine | files and instructions | planned |
+| Amp | your machine | files and instructions | planned |
+| Factory Droid | your machine | files and instructions | planned |
+| Auggie | your machine | files and instructions | planned |
+| Crush | your machine | files and instructions | planned |
+| Aider | your machine | files and instructions | planned |
+| Zed | your machine | files and instructions | planned |
+| Continue | your machine | files and instructions | planned |
+| JetBrains Junie | your machine | files and instructions | planned |
+| Devin | its cloud, with the repo | repo body and `AGENTS.md` | later |
+| Jules | its cloud, with the repo | repo body and `AGENTS.md` | later |
+| Copilot coding agent | its cloud, with the repo | repo body and `AGENTS.md` | later |
+| OpenHands | self-hosted | to research | later |
+| Grok Bot | its own cloud computer | CLI in its VM, otherwise MCP | later |
+| Dots | its own cloud computer | CLI in its VM, otherwise MCP | later |
+| Muse | your machine and its own cloud computer | CLI, otherwise MCP | later |
+| Claude Duet | Anthropic cloud, connectors | MCP | later |
+| Instinct | its own environment | CLI where available, otherwise MCP | later |
+
+| Work | What it unlocks | Status |
+|---|---|---|
+| Memory MCP server | hosted agents with no shell or shared disk | planned |
+| Project-scoped cloud setup | agents that only see the repository | planned |
+| Sync API | one record across laptop, VM, and hosted agent | later |
+
+Memory in those products stays locked to each harness. Agent Memory keeps the body and the memory in files you own, so the same agent can wake in any host that can read them.
+
+A harness moves from planned to supported when its adapter is written against the shared dispatcher, its real payloads are recorded in a test, and it has run once against the live harness.
+
 ## Design
 
-Memory is Markdown because people need to read it and git needs to version it. When the memory is wrong, open the file and fix it instead of reconstructing it from an index nobody can explain.
+Memory is Markdown because there's nothing between you and the logs: no schema, no database, no tool. Open the file and you see everything the agent knows, newest entry first. Each entry stands on its own with its timestamp, agent, session, and trace, so the wake step reads the first 80 lines of memory, 50 of learnings, and 50 of patterns and has enough to resume. That slice is the whole context cost; the rest of the file stays unread until a later session needs it.
 
-The runtime is TypeScript compiled to JavaScript and requires Node.js 18 or later. The published package includes the compiled runtime, so no Python or TypeScript compiler is needed.
+Versioning is optional and works either way. Stage the memory in git and every change is a readable diff and a revertable commit. Leave it untracked, which is the default, and with restic installed Agent Memory snapshots it at setup, at session end, and before compaction, so `agent-memory backup list` and `backup restore` give you earlier versions. Plain text is what keeps both cheap: git can diff it, and a snapshot is just files.
+
+The runtime is TypeScript compiled to JavaScript and runs on Node.js 18 or later. The published package includes the compiled runtime, so setup never runs a compiler.
 
 ## License
 
