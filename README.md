@@ -337,6 +337,14 @@ Memory in those products stays locked to each harness. Agent Memory keeps the bo
 
 A harness moves from planned to supported when its adapter is written against the shared dispatcher, its real payloads are recorded in a test, and it has run once against the live harness.
 
+## Teams
+
+Agent Memory as shipped fits one person working with several agents. It does not fit several people working with the same agents, or with different agents, from one shared memory.
+
+That work is in testing. It may ship as an extension of Agent Memory or as its own product, and this document will say which once that is decided.
+
+I designed the team version around roles for access, SCIM provisioning from the company directory, and SAML single sign-on. An agent acts on behalf of one employee in one session. It cannot hold a permission that employee lacks, and it cannot read another department's or team's data unless that access is granted. Teams can connect roughly 300 SaaS tools so their agents get context from the systems the company already works in, and anyone can reach the same memory from the harness they already use.
+
 ## Design
 
 Memory is Markdown because there's nothing between you and the logs: no schema, no database, no tool. Open the file and you see everything the agent knows, newest entry first. Each entry stands on its own with its timestamp, agent, session, and trace, so the wake step reads the first 80 lines of memory, 50 of learnings, and 50 of patterns and has enough to resume. That slice is the whole context cost; the rest of the file stays unread until a later session needs it.
