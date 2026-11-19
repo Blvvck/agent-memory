@@ -23,11 +23,52 @@ Run it from the project you want to equip. Setup creates `~/.agent-memory/`, add
 
 ## How it works
 
-| Step | What happens |
-|------|--------------|
-| **Wake** | Read the body in slices: `soul.md`, `work.md`, worldview, heart, then the newest memory, learnings, and patterns. |
-| **Work** | Do the task and write a short entry after each meaningful step. |
-| **Sleep** | Final sync. Leave a next step for the next session and link entries both ways. |
+The loop is wake, work, and sync. The hooks make each step concrete.
+
+### Wake
+
+At session start the agent reads a fixed slice of its body, newest material first:
+
+| File | Read | Why |
+|------|------|-----|
+| `soul.md` | top 30 lines | who the agent is |
+| `work.md` | top 30 lines | its role and craft |
+| `brain/worldview.md` | top 20 lines | the beliefs that shape decisions |
+| `heart.md` | top 20 lines | the people it works with |
+| `brain/memory.md` | top 80 lines | what happened and what is next |
+| `brain/learnings.md` | top 50 lines | recent mistakes to avoid |
+| `brain/patterns.md` | top 50 lines | recent methods that worked |
+
+The slice is a starting point. The agent can read further into any file, open `core/` or `mind/` for evidence and judgment, read `WAKE.md` and every file it names, and for project work read the selected `CONTEXT.md` and recent `ACTIVITY.md`. It can check `NOTIFICATIONS.md` when a request may affect the task, and use `agent-memory sessions --search` when the written memory lacks a detail the work needs.
+
+### Work
+
+There is no fixed number of syncs. The obligation is to write after each meaningful unit: a decision, diagnosis, shipped change, test result, blocker, or useful discovery. The hooks add checkpoints around that obligation:
+
+- A soft reminder appears when weighted activity since the last note crosses 9 points. Edits and writes count 3, task delegation 2, shell commands 1.5, fetches and searches 1, reads 0.5, and glob or grep 0.25. The reminder appears once per 9-point bucket, not on every tool call.
+- At Stop, the hook checks for missing session tags, missing traces, and missing reciprocal links. It asks for a sync when activity since the last brain note is at least 9 points, when the newest memory entry is more than 24 hours old, or when a prior session is still unsynced. A score of 15 or more is labeled heavy.
+- Before compaction, the hook asks for the objective, decisions and reasons, completed work, remaining steps, and relevant paths, because that is the state compaction can erase.
+- A write to a tracked note without a trace gets a reminder at write time, and unresolved traces are listed again at Stop.
+
+The agent can sync more often than the checkpoints; the checkpoints exist so a long session cannot drift into silence. Each check is capped: one soft reminder per 9-point bucket, one Stop check per transcript snapshot, one pre-compaction check per snapshot, and one session-end check per snapshot.
+
+### Compaction and session end
+
+Compaction is the point where context is most likely to disappear. The pre-compaction hook writes the sync reminder and takes a background snapshot when the scope is not git-tracked.
+
+Session end is whatever signal the harness provides:
+
+| Harness | End signal |
+|---------|------------|
+| Claude Code | `SessionEnd` |
+| Codex | `SessionEnd` |
+| OpenCode | plugin `session.idle`, mapped to `SessionEnd` |
+| Cursor | `sessionEnd` |
+| Antigravity | no end event; stale-session recovery handles it |
+
+At `SessionEnd` the hook takes a snapshot and checks whether the agent updated its brain file and the project `ACTIVITY.md` since the last meaningful activity. If either is missing and activity crossed the 9-point threshold, it writes an unsynced marker under `~/.agent-memory/hooks/shared/state/brain-sync/`. The next `SessionStart` surfaces that marker as an “unsynced session catch-up” before unrelated work, and `agent-memory-heartbeat` recovers sessions that have been active with no event for two hours; `--watch` scans every ten minutes.
+
+The hooks cannot force a model to write a useful note, so the enforcement is visibility: a session without a sync leaves a marker that the next session and the heartbeat can see, and the marker stays until the work is reconciled. That is the backstop for a closed laptop, a crash, or a harness that never sent an end event.
 
 Entries follow one format so they stay sortable and attributable:
 
@@ -204,6 +245,30 @@ Restores default to a temporary directory. `--in-place --yes` merges into the li
 Existing JSON hook settings are backed up before a merge, and existing instruction files are kept. Cursor Cloud Agents load project hooks from `.cursor/hooks.json`, so run project setup in each repository used there. For Codex, review and trust the project hooks in `/hooks`, then restart the harness.
 
 Hooks capture prompts and completed tool calls in a per-session journal and check at lifecycle points. New sessions recover stale sessions whose end hook never ran, and `agent-memory-heartbeat` can scan on a schedule. The protected writer counts as a sync.
+
+## Hooks
+
+`agent-memory init` merges one small hook or plugin into each selected harness, and every adapter calls the same dispatcher. The hooks record the session, inject memory context, and guard the protected files. Most failures log and continue so a broken hook cannot take the harness down, while the protected-log guard and the named-subagent spawn check block on purpose.
+
+| Event | What the hook does |
+|-------|--------------------|
+| Session start | Rebuilds the skills index, recovers sessions whose end hook never ran, surfaces pending cron approvals, and injects the session context and brain-sync request. |
+| Prompt submitted | Captures the prompt for the session journal and brain-sync; in Claude Code it also detects a named-agent address and injects that body's required reads. |
+| Before a tool call | Blocks direct edits to protected logs, reminds the agent when a tracked note is written without a trace, and checks a named subagent's prompt for the required body reads and logging instructions. |
+| After a tool call | Records the completed call in the session journal and advances the brain-sync request. |
+| Before compaction | Writes a memory reminder and takes a background snapshot when the scope is not git-tracked. |
+| Stop | Checks for an unfinished trace and asks for the sync before the turn ends. |
+| Session end | Takes a background snapshot and closes the session record. |
+
+| Harness | Session start | Prompt | Pre-tool guard | Post-tool | Compaction | Stop | Session end | Named-agent wake |
+|---------|---------------|--------|----------------|-----------|------------|------|-------------|------------------|
+| Claude Code | yes | yes | yes | yes | yes | yes | yes | yes |
+| Codex | yes | yes | yes | yes | yes | yes | yes | no |
+| OpenCode | yes | yes | no | yes | yes | yes | yes | no |
+| Antigravity | yes | yes | yes | yes | no | yes | no | no |
+| Cursor | yes | yes | yes | yes | yes | yes | yes | no |
+
+OpenCode runs through a plugin rather than shell hooks, so it records and injects context but does not block a direct protected-file write before it happens. Antigravity exposes no compaction or session-end event. Named-agent wake is wired for Claude Code; in the other harnesses, delegate through the subagent support and pass the body paths from [`protocols/subagent-wake.md`](protocols/subagent-wake.md). A harness without hooks still uses the same memory; the hooks add automation and guards around it.
 
 ## Agent bodies
 
