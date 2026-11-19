@@ -207,6 +207,22 @@ test("a heading inside a code fence is not treated as the title", () => {
   }
 });
 
+test("a short fence does not close a longer one", () => {
+  const { home, source } = setup();
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    mkdirSync(join(home, ".agent-memory", "human"), { recursive: true });
+    writeFileSync(destination, "````md\n# not a title\n```\n# still code\n````\n\n# Real Title\n\nExisting line.\n", "utf8");
+    assert.equal(run(home, ["import", "--from", source, "--yes"]).status, 0);
+    const text = readFileSync(destination, "utf8");
+    const importedAt = text.indexOf("## Imported from");
+    assert.ok(importedAt > text.indexOf("# Real Title"), "import landed before the real title");
+    assert.ok(importedAt > text.indexOf("````\n\n# Real Title"), "import landed inside the longer fence");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("import writes nothing without --yes", () => {
   const { home, source } = setup();
   const destination = join(home, ".agent-memory", "human", "profile.md");

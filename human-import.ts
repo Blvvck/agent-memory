@@ -185,15 +185,22 @@ export function runHuman(args: string[]): void {
 }
 
 function titleEnd(profile: string): number {
-  let fence = "";
+  let fenceChar = "";
+  let fenceLength = 0;
   let offset = 0;
   for (const line of profile.split("\n")) {
     const trimmed = line.trimStart();
     const marker = /^(`{3,}|~{3,})/.exec(trimmed);
     if (marker) {
-      if (!fence) fence = marker[1][0];
-      else if (marker[1][0] === fence) fence = "";
-    } else if (!fence && /^#\s+\S/.test(trimmed)) {
+      const run = marker[1];
+      if (!fenceChar) {
+        fenceChar = run[0];
+        fenceLength = run.length;
+      } else if (run[0] === fenceChar && run.length >= fenceLength && new RegExp(`^\\${fenceChar}{${fenceLength},}\\s*$`).test(trimmed)) {
+        fenceChar = "";
+        fenceLength = 0;
+      }
+    } else if (!fenceChar && /^#\s+\S/.test(trimmed)) {
       return offset + line.length;
     }
     offset += line.length + 1;
