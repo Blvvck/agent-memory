@@ -65,19 +65,49 @@ function sleepSync(milliseconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
+function ownerAlive(lock: string): boolean {
+  try {
+    const owner = JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")) as { pid?: number };
+    if (typeof owner.pid !== "number") return false;
+    try { process.kill(owner.pid, 0); return true; }
+    catch { return false; }
+  } catch {
+    return false;
+  }
+}
+
+function reclaim(lock: string): void {
+  const trashed = `${lock}.stale-${process.pid}-${Date.now()}`;
+  try { renameSync(lock, trashed); }
+  catch { return; }
+  rmSync(trashed, { recursive: true, force: true });
+}
+
 function withLock<T>(run: () => T): T {
   const lock = join(humanRoot(), ".import.lock");
   mkdirSync(humanRoot(), { recursive: true });
+  let held = false;
   for (let attempt = 0; attempt < 50; attempt++) {
-    try { mkdirSync(lock); break; }
-    catch {
-      try {
-        if (Date.now() - statSync(lock).mtimeMs > 30_000) { rmSync(lock, { recursive: true, force: true }); continue; }
-      } catch { continue; }
+    try {
+      mkdirSync(lock);
+      writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+      held = true;
+      break;
+    } catch {
+      if (ownerAlive(lock)) {
+        if (attempt === 49) fail("Another import is running. Try again in a moment.");
+        sleepSync(100);
+        continue;
+      }
+      let age = 0;
+      try { age = Date.now() - statSync(lock).mtimeMs; }
+      catch { continue; }
+      if (age > 5_000) { reclaim(lock); continue; }
       if (attempt === 49) fail("Another import is running. Try again in a moment.");
       sleepSync(100);
     }
   }
+  if (!held) fail("Another import is running. Try again in a moment.");
   try { return run(); }
   finally { try { rmSync(lock, { recursive: true, force: true }); } catch { /* best effort */ } }
 }
@@ -149,8 +179,15 @@ export function runHuman(args: string[]): void {
       writeFileSync(destination, "# Human — Profile\n\nStable facts about the person this agent works with.\n", "utf8");
     }
     for (const path of pending) {
+      const marker = `<!-- imported from ${path} on `;
+      const current = existsSync(destination) ? readFileSync(destination, "utf8") : "";
+      if (current.includes(marker)) {
+        imported[path] = date;
+        process.stdout.write(`Already present in the profile: ${path}\n`);
+        continue;
+      }
       const content = truncate(readFileSync(path, "utf8").trim());
-      appendFileSync(destination, `\n\n## Imported from ${path}\n\n<!-- imported from ${path} on ${date} -->\n\n${content}\n`, "utf8");
+      appendFileSync(destination, `\n\n## Imported from ${path}\n\n${marker}${date} -->\n\n${content}\n`, "utf8");
       imported[path] = date;
       process.stdout.write(`Imported ${path}\n`);
     }
