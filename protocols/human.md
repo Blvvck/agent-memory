@@ -59,7 +59,7 @@ A harness may already keep a user file of its own. Leave it where it is and do n
 agent-memory human import --from ~/.cursor/user.md --yes
 ```
 
-Without `--from`, the known harness locations are checked. The command writes nothing without `--yes`, marks what it imported so a second run skips it, and never modifies the source file.
+Without `--from`, the known harness locations are checked. Add `--dry-run` to see the plan without writing. The command writes nothing without `--yes`, records each import in `human/imports.json` so a second run skips it, and never modifies the source file.
 
 ## Teams
 

@@ -229,7 +229,7 @@ Restores default to a temporary directory. `--in-place --yes` merges into the li
 
 ## What setup creates
 
-**Global** (`~/.agent-memory/`): `AGENTS.md`, `protocols/`, `examples/`, `dist/`, the example body under `.agents/example/`, and the global scaffold (`ACTIVITY.md`, `NOTIFICATIONS.md`, `skills/README.md`, and optional team files).
+**Global** (`~/.agent-memory/`): `AGENTS.md`, `protocols/`, `examples/`, `dist/`, the example body under `.agents/example/`, the human memory directory (`human/` with `README.md`, `profile.md`, `preferences.md`, `context.md`, and `history.md`), and the global scaffold (`ACTIVITY.md`, `NOTIFICATIONS.md`, `skills/README.md`, and optional team files).
 
 **Project** (selected directory): `CONTEXT.md`, `ACTIVITY.md`, `IDEAS.md`, `skills/README.md`, and `MODULES.md`, plus optional `work/` and team files. `.agent-memory-layout` records which directory the project uses.
 
