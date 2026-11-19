@@ -188,6 +188,7 @@ function titleEnd(profile: string): number {
   let fenceChar = "";
   let fenceLength = 0;
   let offset = 0;
+  let previousIsParagraph = false;
   for (const line of profile.split("\n")) {
     const trimmed = line.trimStart();
     const indent = line.length - trimmed.length;
@@ -201,9 +202,12 @@ function titleEnd(profile: string): number {
         fenceChar = "";
         fenceLength = 0;
       }
+    } else if (!fenceChar && indent <= 3 && /^=+\s*$/.test(trimmed) && previousIsParagraph) {
+      return offset + line.length;
     } else if (!fenceChar && indent <= 3 && /^#\s+\S/.test(trimmed)) {
       return offset + line.length;
     }
+    previousIsParagraph = !fenceChar && trimmed.length > 0 && !/^[>#]/.test(trimmed) && !marker;
     offset += line.length + 1;
   }
   return -1;
