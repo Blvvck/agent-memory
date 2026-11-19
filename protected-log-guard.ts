@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, isAbsolute, resolve } from "node:path";
 import { canonicalProtectedLogPath, ProtectedLogError } from "./protected-log";
 
@@ -106,6 +106,7 @@ function installedWriter(program: string, cwd = process.cwd()): boolean {
     : resolveProgram(program);
   if (!candidate || !existsSync(candidate)) return false;
   try {
+    if (!statSync(candidate).isFile()) return false;
     const installed = resolve(__dirname, "agent-log.js");
     if (realpathSync(candidate) === realpathSync(installed)) return true;
     return readFileSync(candidate).equals(readFileSync(installed));
