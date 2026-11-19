@@ -649,7 +649,7 @@ function wireHarness(harness: Harness, memoryRoot: string, projectRoot?: string)
   const config = harness === "claude"
     ? { path: projectRoot ? join(projectRoot, ".claude", "settings.json") : join(homedir(), ".claude", "settings.json"), example: "settings.example.json" }
     : harness === "codex"
-      ? { path: projectRoot ? join(projectRoot, ".codex", "hooks.json") : join(homedir(), ".codex", "hooks.json"), example: "codex-hooks.example.json" }
+      ? { path: join(homedir(), ".codex", "hooks.json"), example: "codex-hooks.example.json" }
       : { path: projectRoot ? join(projectRoot, ".agents", "hooks.json") : join(homedir(), ".gemini", "config", "hooks.json"), example: "antigravity-hooks.example.json", namespace: "agent-memory" };
   const examplePath = join(memoryRoot, config.example);
   try {
