@@ -112,7 +112,11 @@ export function canonicalProtectedLogPath(path: string): string {
   }
   if (memoryDir && root) {
     const actual = existsSync(memoryDir) ? realpathSync(memoryDir) : resolve(memoryDir);
-    const expected = projectMemoryDirectories.map((directory) => resolve(root, directory));
+    const expected = projectMemoryDirectories.map((directory) => {
+      const candidate = resolve(root, directory);
+      try { return existsSync(candidate) ? realpathSync(candidate) : candidate; }
+      catch { return candidate; }
+    });
     if (!expected.includes(actual)) throw new ProtectedLogError(`protected log must use the canonical project memory directory (${expected.join(" or ")}); worktree-local project memory is not allowed (${memoryDir}). Use the main checkout path or symlink the memory directory to it.`);
   }
   return canonical;
