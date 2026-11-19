@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename, delimiter, extname, isAbsolute, resolve } from "node:path";
 import { canonicalProtectedLogPath, ProtectedLogError } from "./protected-log";
 
 const protectedNames = new Set(["MEMORY.MD", "LEARNINGS.MD", "PATTERNS.MD", "ACTIVITY.MD", "NOTIFICATIONS.MD"]);
@@ -89,32 +89,61 @@ function words(segment: string): string[] | null {
   return result;
 }
 
-function resolveProgram(program: string): string | null {
-  if (isAbsolute(program)) return existsSync(program) ? program : null;
-  if (program.includes("/")) {
-    const local = resolve(program);
-    return existsSync(local) ? local : null;
+const writerNames = new Set(["agent-log", "agent-log.js", "agent-log.cmd", "agent-log.exe", "agent-log.ps1"]);
+const nodeNames = new Set(["node", "nodejs", "node.exe"]);
+
+function programCandidates(program: string, cwd: string): string[] {
+  const base = isAbsolute(program) ? program : program.includes("/") || program.includes("\\") ? resolve(cwd, program) : null;
+  if (base) return [base];
+  const directories = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  const extensions = process.platform === "win32"
+    ? ["", ...(process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").map((ext) => ext.toLowerCase())]
+    : [""];
+  const found: string[] = [];
+  for (const directory of directories) {
+    for (const extension of extensions) {
+      const candidate = resolve(directory, `${program}${extension}`);
+      if (existsSync(candidate)) found.push(candidate);
+    }
   }
-  return process.env.PATH?.split(":").map((dir) => resolve(dir, program)).find(existsSync) ?? null;
+  return found;
 }
 
-function installedWriter(program: string, cwd = process.cwd()): boolean {
-  const name = basename(program);
-  if (name !== "agent-log" && name !== "agent-log.js") return false;
-  const candidate = isAbsolute(program) ? program
-    : program.includes("/") ? resolve(cwd, program)
-    : resolveProgram(program);
-  if (!candidate || !existsSync(candidate)) return false;
+function shimTarget(file: string): string | null {
+  if (![".cmd", ".ps1", ""].includes(extname(file).toLowerCase())) return null;
+  try {
+    const text = readFileSync(file, "utf8").slice(0, 65_536);
+    const match = text.match(/[A-Za-z]:[^"\r\n]*agent-log\.js|[^"\s]*[\\/]agent-log\.js/);
+    return match ? match[0] : null;
+  } catch { return null; }
+}
+
+function sameFileAsInstalled(candidate: string): boolean {
   try {
     const stats = statSync(candidate);
-    if (!stats.isFile()) return false;
+    if (!stats.isFile() || stats.size > 1_048_576) return false;
     const installed = resolve(__dirname, "agent-log.js");
-    if (realpathSync(candidate) === realpathSync(installed)) return true;
-    if (stats.size > 1_048_576) return false;
+    const actual = process.platform === "win32" ? realpathSync(candidate).toLowerCase() : realpathSync(candidate);
+    const expected = process.platform === "win32" ? realpathSync(installed).toLowerCase() : realpathSync(installed);
+    if (actual === expected) return true;
     const installedStats = statSync(installed);
     if (stats.size !== installedStats.size) return false;
     return readFileSync(candidate).equals(readFileSync(installed));
   } catch { return false; }
+}
+
+function installedWriter(program: string, cwd = process.cwd()): boolean {
+  if (!writerNames.has(basename(program).toLowerCase())) return false;
+  for (const candidate of programCandidates(program, cwd)) {
+    if (!existsSync(candidate)) continue;
+    try {
+      if (!statSync(candidate).isFile()) continue;
+      if (sameFileAsInstalled(candidate)) return true;
+      const target = shimTarget(candidate);
+      if (target && sameFileAsInstalled(resolve(cwd, target))) return true;
+    } catch { continue; }
+  }
+  return false;
 }
 
 function unquoted(segment: string): string {
@@ -154,7 +183,7 @@ function segmentReadOnly(segment: string): boolean {
   if (!args.length) return true;
   const program = basename(args[0]);
   if (neutralCommands.has(program) || installedWriter(args[0])) return true;
-  if (["node", "nodejs"].includes(program) && args.length > 1 && installedWriter(args[1])) return true;
+  if (nodeNames.has(program.toLowerCase()) && args.length > 1 && installedWriter(args[1])) return true;
   if (program === "git" && args.length > 1) {
     const subcommand = args[1];
     if (subcommand === "add") return true;
@@ -185,7 +214,7 @@ function isWriterCommand(command: string, cwd: string): boolean {
     if (!args.length) return false;
     const program = basename(args[0]);
     if (installedWriter(args[0], cwd)) return true;
-    return ["node", "nodejs"].includes(program) && args.length > 1 && installedWriter(args[1], cwd);
+    return nodeNames.has(program.toLowerCase()) && args.length > 1 && installedWriter(args[1], cwd);
   });
 }
 

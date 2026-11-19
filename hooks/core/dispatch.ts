@@ -2,10 +2,10 @@
 
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { appendEvent, updateCurrentSession } from "../../common";
+import { STATE_DIR, appendEvent, updateCurrentSession } from "../../common";
 import { projectMemoryRoot } from "../../memory-paths";
 import { syncSkills } from "../../skills";
 import { snapshotInBackground, snapshotScopeInBackground } from "../../backup";
@@ -164,7 +164,21 @@ function lifecycleEvent(source: string, event: string): string {
 }
 
 const memorySegments = [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"];
-let lastOverwriteSnapshot = 0;
+function overwriteSnapshotMarker(scope: string): string {
+  return join(STATE_DIR, `overwrite-snapshot-${scope}`);
+}
+
+function recentlySnapshotted(scope: string): boolean {
+  try { return Date.now() - statSync(overwriteSnapshotMarker(scope)).mtimeMs < 300_000; }
+  catch { return false; }
+}
+
+function markSnapshotted(scope: string): void {
+  try {
+    mkdirSync(STATE_DIR, { recursive: true });
+    writeFileSync(overwriteSnapshotMarker(scope), new Date().toISOString());
+  } catch { /* throttle fail-open */ }
+}
 
 function isMemoryFile(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
@@ -178,10 +192,10 @@ function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cw
   const target = String(input.file_path || input.path || input.filePath || "");
   if (!target || !isMemoryFile(target)) return;
   if (!existsSync(target)) return;
-  if (Date.now() - lastOverwriteSnapshot < 300_000) return;
-  lastOverwriteSnapshot = Date.now();
   const globalRoot = join(homedir(), ".agent-memory").replace(/\\/g, "/");
   const scope = target.replace(/\\/g, "/").startsWith(globalRoot) ? "global" : "project";
+  if (recentlySnapshotted(scope)) return;
+  markSnapshotted(scope);
   try { snapshotScopeInBackground(scope); }
   catch { /* backups fail open */ }
 }

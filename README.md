@@ -214,7 +214,7 @@ Runners: `claude`, `codex`, `opencode`, `antigravity`, and `cursor`. Override an
 
 When restic is installed and a scope isn't tracked in git, Agent Memory versions it automatically. That covers the global files under `~/.agent-memory/`, the project memory directory, and agent bodies inside either scope. Setup takes the first snapshot; session end and pre-compaction take another.
 
-A write that overwrites an existing file in a memory or agent-body directory takes a background snapshot before it lands, throttled to one every five minutes per scope, so an overwrite is restorable before session end. A git-tracked scope keeps git as its history and is skipped. Snapshots deduplicate, and retention keeps the last 10 plus daily, weekly, and monthly. No password prompt appears; the key is generated under `~/.agent-memory/backup/`.
+A write that overwrites an existing file in a memory or agent-body directory starts a background snapshot before it lands, at most once every five minutes per scope. The snapshot is best effort: on a slow host the write can land before restic finishes, so treat the restore as a safety net rather than a guarantee. A git-tracked scope keeps git as its history and is skipped. Snapshots deduplicate, and retention keeps the last 10 plus daily, weekly, and monthly. No password prompt appears; the key is generated under `~/.agent-memory/backup/`.
 
 ```bash
 agent-memory backup list
@@ -264,7 +264,7 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 |---------|---------------|--------|----------------|-----------|------------|------|-------------|---------------|---------------|
 | Claude Code | yes | yes | yes | yes | yes | yes | yes | yes | model context |
 | Codex | yes | yes | yes | yes | yes | yes | yes | yes | model context |
-| OpenCode | yes | yes | no | yes | yes | no | no | yes | plugin context |
+| OpenCode | yes | yes | no | yes | yes | no | deleted only | yes | plugin context |
 | Antigravity | yes | yes | yes | yes | no | yes | no | yes | injected step |
 | Cursor | yes | yes | yes | yes | yes | yes | yes | yes | user message |
 

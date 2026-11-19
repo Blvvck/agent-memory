@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
-const { mkdirSync, mkdtempSync, rmSync, writeFileSync } = require("node:fs");
+const { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 
@@ -98,6 +98,38 @@ test("Antigravity blocks a direct write to a protected log", () => {
     const parsed = JSON.parse(output);
     assert.equal(parsed.decision, "deny");
     assert.match(parsed.reason, /protected/i);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode plugin callbacks inject wake context and close on deletion", () => {
+  const { home, project } = makeHome();
+  try {
+    const script = [
+      "const plugin = require(process.argv[1]).default;",
+      "(async () => {",
+      "  const hooks = await plugin.server({ directory: process.argv[2] });",
+      "  await hooks['chat.message']({ sessionID: 'sess-1' }, { parts: [{ type: 'text', text: 'hey luna' }] });",
+      "  const output = { system: [] };",
+      "  await hooks['experimental.chat.system.transform']({ sessionID: 'sess-1' }, output);",
+      "  await hooks.event({ event: { type: 'session.deleted', properties: { sessionID: 'sess-1' } } });",
+      "  process.stdout.write(JSON.stringify({ system: output.system }));",
+      "})().catch((error) => { process.stderr.write(String(error)); process.exit(1); });",
+    ].join("\n");
+    const result = spawnSync(process.execPath, ["-e", script, join(root, "dist", "hooks", "harnesses", "opencode", "plugin.js"), project], {
+      encoding: "utf8",
+      env: environment(home),
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const { system } = JSON.parse(result.stdout);
+    assert.match(system.join("\n"), /\[WAKE PROTOCOL for Luna\]/);
+
+    const events = readdirSync(join(home, ".agent-memory", "hooks", "shared", "state"))
+      .filter((name) => name.startsWith("events-"))
+      .map((name) => readFileSync(join(home, ".agent-memory", "hooks", "shared", "state", name), "utf8"))
+      .join("\n");
+    assert.match(events, /"source":"opencode"[^\n]*"event":"SessionEnd"/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

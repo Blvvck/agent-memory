@@ -210,6 +210,7 @@ export function snapshotInBackground(cwd: string): void {
     detached: true,
     stdio: "ignore",
   });
+  child.on("error", () => undefined);
   child.unref();
 }
 
@@ -220,6 +221,7 @@ export function snapshotScopeInBackground(scope: "global" | "project"): void {
     detached: true,
     stdio: "ignore",
   });
+  child.on("error", () => undefined);
   child.unref();
 }
 
