@@ -106,9 +106,12 @@ function installedWriter(program: string, cwd = process.cwd()): boolean {
     : resolveProgram(program);
   if (!candidate || !existsSync(candidate)) return false;
   try {
-    if (!statSync(candidate).isFile()) return false;
+    const stats = statSync(candidate);
+    if (!stats.isFile() || stats.size > 1_048_576) return false;
     const installed = resolve(__dirname, "agent-log.js");
     if (realpathSync(candidate) === realpathSync(installed)) return true;
+    const installedStats = statSync(installed);
+    if (stats.size !== installedStats.size) return false;
     return readFileSync(candidate).equals(readFileSync(installed));
   } catch { return false; }
 }
@@ -119,21 +122,23 @@ function unquoted(segment: string): string {
   for (let index = 0; index < segment.length; index++) {
     const char = segment[index];
     if (quote) {
-      if (char === "\\" && quote === '"' && index + 1 < segment.length) text += segment[++index];
-      else if (char === quote) quote = "";
+      if (char === quote) quote = "";
       continue;
     }
     if (char === "'" || char === '"') { quote = char; continue; }
-    if (char === "\\" && index + 1 < segment.length) { text += segment[++index]; continue; }
+    if (char === "\\" && index + 1 < segment.length) { text += " "; index++; continue; }
     text += char;
   }
   return text;
 }
 
 function hasBlockingRedirect(segment: string): boolean {
-  for (const match of unquoted(segment).matchAll(/(?:\d*)(>>?|>&|&>)\s*([^\s;|&]*)/g)) {
+  const text = unquoted(segment);
+  for (const match of text.matchAll(/(?:\d*)(>>?|>&|&>)\s*(&\d+|\d+|\/dev\/null|[^\s;|&]*)/g)) {
+    const operator = match[1];
     const target = match[2] ?? "";
     if (/^&\d+$/.test(target) || target === "/dev/null") continue;
+    if ((operator === ">&" || operator === "&>") && /^\d+$/.test(target)) continue;
     return true;
   }
   return false;

@@ -59,6 +59,11 @@ test("only the installed writer is exempt, and never with a redirect", () => {
 
     assert.equal(run(`node ${installed} --file ${target}`), null);
     assert.equal(run(`node ${installed} --file ${target} 2> /dev/null`), null);
+    assert.equal(run(`node ${installed} --file ${target} 2>&1`), null);
+    assert.equal(run(`node ${installed} --file ${target} >&2`), null);
+    assert.equal(run(`node ${installed} --file ${target} &> /dev/null`), null);
+    assert.equal(run(`node ${installed} --file ${target} --content "note \\> arrow"`), null);
+    assert.match(run(`node ${installed} --file ${target} &> ${target}`), /Direct shell mutation/);
     for (const redirect of [`> ${target}`, `>> ${target}`, `>& ${target}`, `2> ${target}`]) {
       assert.match(run(`node ${installed} --file ${target} ${redirect}`), /Direct shell mutation/);
     }
