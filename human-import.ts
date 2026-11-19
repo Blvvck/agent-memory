@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -65,17 +65,6 @@ function sleepSync(milliseconds: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
-function ownerAlive(lock: string): boolean {
-  try {
-    const owner = JSON.parse(readFileSync(join(lock, "owner.json"), "utf8")) as { pid?: number };
-    if (typeof owner.pid !== "number") return false;
-    try { process.kill(owner.pid, 0); return true; }
-    catch { return false; }
-  } catch {
-    return false;
-  }
-}
-
 function reclaim(lock: string): void {
   const trashed = `${lock}.stale-${process.pid}-${Date.now()}`;
   try { renameSync(lock, trashed); }
@@ -84,21 +73,26 @@ function reclaim(lock: string): void {
 }
 
 function claim(path: string): boolean {
+  const staging = `${path}.init-${process.pid}-${Date.now()}`;
   try {
-    mkdirSync(path);
-    writeFileSync(join(path, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+    mkdirSync(staging);
+    writeFileSync(join(staging, "owner.json"), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }));
+    renameSync(staging, path);
     return true;
   } catch {
+    try { rmSync(staging, { recursive: true, force: true }); } catch { /* best effort */ }
     return false;
   }
 }
 
 function reclaimIfStale(path: string): void {
-  if (ownerAlive(path)) return;
-  let age = 0;
-  try { age = Date.now() - statSync(path).mtimeMs; }
+  let pid: unknown;
+  try { pid = (JSON.parse(readFileSync(join(path, "owner.json"), "utf8")) as { pid?: unknown }).pid; }
   catch { return; }
-  if (age > 5_000) reclaim(path);
+  if (typeof pid !== "number") return;
+  try { process.kill(pid, 0); return; }
+  catch { /* dead owner */ }
+  reclaim(path);
 }
 
 function withLock<T>(run: () => T): T {
