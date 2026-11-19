@@ -270,7 +270,7 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 
 Waking a named agent doesn't depend on hooks. `AGENTS.md` tells every harness to open the addressed body and become it, and a delegated subagent receives the same contract in its spawn prompt, so the behavior works even where no hook runs. The table records which harnesses also automate the reminder: Claude Code, Codex, and OpenCode add the wake protocol to the model context, Antigravity delivers it as an injected step, and Cursor's prompt hook exposes only a user-facing message, so its reminder reaches the person rather than the model.
 
-OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session on the idle event, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
+OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session on the idle event, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event, and its CLI fires the pre-tool hook for shell commands while file tools in a headless run are not gated. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
 
 ## Agent bodies
 
