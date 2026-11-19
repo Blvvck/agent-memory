@@ -163,6 +163,27 @@ function lifecycleEvent(source: string, event: string): string {
   return source === "antigravity" && event === "PreInvocation" ? "SessionStart" : source === "antigravity" && event === "PostInvocation" ? "PostToolUse" : event;
 }
 
+const memorySegments = [".agent-memory", ".claude", ".codex", ".opencode", ".agents", ".cursor"];
+let lastOverwriteSnapshot = 0;
+
+function isMemoryFile(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  const globalRoot = join(homedir(), ".agent-memory").replace(/\\/g, "/");
+  return normalized.startsWith(globalRoot) || normalized.split("/").some((part) => memorySegments.includes(part));
+}
+
+function maybeSnapshotBeforeOverwrite(payload: HookPayload, toolName: string, cwd: string): void {
+  if (toolName !== "Write") return;
+  const input = payload.tool_input && typeof payload.tool_input === "object" && !Array.isArray(payload.tool_input) ? payload.tool_input as Record<string, unknown> : {};
+  const target = String(input.file_path || input.path || input.filePath || "");
+  if (!target || !isMemoryFile(target)) return;
+  if (!existsSync(target)) return;
+  if (Date.now() - lastOverwriteSnapshot < 300_000) return;
+  lastOverwriteSnapshot = Date.now();
+  try { snapshotInBackground(cwd); }
+  catch { /* backups fail open */ }
+}
+
 function syncSkillsOnStart(cwd: string): void {
   try {
     const globalRoot = join(homedir(), ".agent-memory");
@@ -221,6 +242,7 @@ export function dispatch(payload: HookPayload): HookResult {
     } catch { /* wake detection fails open */ }
   }
   if (event === "PreToolUse") {
+    maybeSnapshotBeforeOverwrite(payload, toolName, cwd);
     collectResult(runHook("guard", payload), blocks, contexts);
     if (["Write", "Edit", "apply_patch"].includes(toolName)) collectResult(runHook("trace_intent", payload), blocks, contexts);
     if (["Agent", "Task", "spawn_agent"].includes(toolName)) collectResult(runHook("spawn", payload), blocks, contexts);
