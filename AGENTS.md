@@ -58,6 +58,12 @@ Where the harness supports the wake hook, a message that starts with `Hey <name>
 |-------|------|-------|------|
 <!-- agent-memory:agents:end -->
 
+## Human memory
+
+`~/.agent-memory/human/` holds what the agent knows about the person it works with: a profile, working preferences, current context, and a dated history. The agent owns these files and keeps them current. Add to them when something durable is learned, and ask when a gap blocks good work, without turning the session into an interview.
+
+A new file under `human/` is allowed. Before creating one, check whether the fact fits an existing file. The layout, the writing rules, and the do-not-store list are in [`protocols/human.md`](protocols/human.md).
+
 ## Skills
 
 Skills are reusable procedures written as Markdown. Shared skills live in `~/.agent-memory/skills/`; project skills live in `skills/` inside the project's memory directory. Each skill is `<name>.md` or `<name>/SKILL.md`, with optional `name` and `description` frontmatter.
