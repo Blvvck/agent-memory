@@ -185,7 +185,9 @@ export function runHuman(args: string[]): void {
 }
 
 function insertNearTop(profile: string, section: string): string {
-  const firstBreak = profile.indexOf("\n");
-  if (!profile.startsWith("# ") || firstBreak < 0) return `${profile.trimEnd()}\n${section}`;
-  return `${profile.slice(0, firstBreak)}\n${section}${profile.slice(firstBreak)}`;
+  const titled = profile.startsWith("# ")
+    ? profile
+    : `# Human — Profile\n\n${profile.trimStart()}`;
+  const firstBreak = titled.indexOf("\n");
+  return `${titled.slice(0, firstBreak)}\n${section}${titled.slice(firstBreak)}`;
 }

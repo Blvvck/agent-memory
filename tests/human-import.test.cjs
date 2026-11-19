@@ -153,6 +153,23 @@ test("imported facts land inside the wake slice", () => {
   }
 });
 
+test("a titleless profile gets a title and the import near the top", () => {
+  const { home, source } = setup();
+  const destination = join(home, ".agent-memory", "human", "profile.md");
+  try {
+    mkdirSync(join(home, ".agent-memory", "human"), { recursive: true });
+    const filler = Array.from({ length: 35 }, (_, index) => `Existing line ${index + 1}`).join("\n");
+    writeFileSync(destination, `${filler}\n`, "utf8");
+    assert.equal(run(home, ["import", "--from", source, "--yes"]).status, 0);
+    const text = readFileSync(destination, "utf8");
+    assert.ok(text.startsWith("# Human — Profile"), "title was not added");
+    assert.match(text.split("\n").slice(0, 30).join("\n"), /I prefer short answers/);
+    assert.match(text, /Existing line 35/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("import writes nothing without --yes", () => {
   const { home, source } = setup();
   const destination = join(home, ".agent-memory", "human", "profile.md");
