@@ -270,7 +270,7 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 
 Waking a named agent doesn't depend on hooks. `AGENTS.md` tells every harness to open the addressed body and become it, and a delegated subagent receives the same contract in its spawn prompt, so the behavior works even where no hook runs. The table records which harnesses also automate the reminder: Claude Code, Codex, and OpenCode add the wake protocol to the model context, Antigravity delivers it as an injected step, and Cursor's prompt hook exposes only a user-facing message, so its reminder reaches the person rather than the model.
 
-OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session when the session is deleted, since an idle turn is not the end of the session, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event, and it skips hooks for tools its permission rules already allow, so a protected write is gated only when it needs approval. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
+OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session when the session is deleted, since an idle turn isn't the end of the session, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event, and it skips hooks for tools its permission rules already allow, so a protected write is gated only when it needs approval. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
 
 ## Agent bodies
 
@@ -291,6 +291,8 @@ Required: Node.js 18 or later. Optional: git for tracked scaffolds, restic for v
 `agent-memory doctor` checks the platform, binaries, symlink support, and backup state.
 
 ## What's next
+
+Most harnesses now support a memory file, but it isn't as enforced or kept updated, and it stays vendor-locked to each harness. Agent Memory does the opposite: it keeps your agent bodies and memory in files you own, so the same agent can wake in any host that can read them.
 
 | Harness | Where it runs | How memory reaches it | Status |
 |---|---|---|---|
@@ -333,17 +335,15 @@ Required: Node.js 18 or later. Optional: git for tracked scaffolds, restic for v
 | Project-scoped cloud setup | agents that only see the repository | planned |
 | Sync API | one record across laptop, VM, and hosted agent | later |
 
-Memory in those products stays locked to each harness. Agent Memory keeps the body and the memory in files you own, so the same agent can wake in any host that can read them.
-
 A harness moves from planned to supported when its adapter is written against the shared dispatcher, its real payloads are recorded in a test, and it has run once against the live harness.
 
 ## Teams
 
-Agent Memory as shipped fits one person working with several agents. It does not fit several people working with the same agents, or with different agents, from one shared memory.
+Agent Memory as shipped fits one person working with several agents. It doesn't fit several people working with the same agents, or with different agents, from one shared memory.
 
-That work is in testing. It may ship as an extension of Agent Memory or as its own product, and this document will say which once that is decided.
+That work is in testing. It may ship as an extension of Agent Memory or as its own product, and this document will say which once that's decided.
 
-I designed the team version around roles for access, SCIM provisioning from the company directory, and SAML single sign-on. An agent acts on behalf of one employee in one session. It cannot hold a permission that employee lacks, and it cannot read another department's or team's data unless that access is granted. Teams can connect roughly 300 SaaS tools so their agents get context from the systems the company already works in, and anyone can reach the same memory from the harness they already use.
+I designed the team version around roles for access, SCIM provisioning from the company directory, and SAML single sign-on. An agent acts on behalf of one employee in one session. It can't hold a permission that employee lacks, and it can't read another department's or team's data unless that access is granted. Teams can connect roughly 300 SaaS tools so their agents get context from the systems the company already works in, and anyone can reach the same memory from the harness they already use.
 
 ## Design
 
