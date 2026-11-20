@@ -156,6 +156,8 @@ Setup creates files but doesn't commit them. By default the global and project s
 
 A project-scoped body with the same name overrides the shared body for that project. In harnesses without the wake hook, delegate through the harness's subagent support and pass the body paths described in [`protocols/subagent-wake.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/subagent-wake.md). The roster in `AGENTS.md` lists the names available in the scope.
 
+The contract is the same whether the agent starts as the main session or as a spawned subagent, and it holds in every harness: resolve the body, read the listed files, do the work, then record the result. Where the hooks run, an orchestrator that spawns a registered named agent without those reads and without the log-and-trace instructions is blocked, and the error lists the paths the prompt is missing so the spawn can be corrected and retried. A subagent whose name has no registered body passes through, because the check only applies when a body resolves.
+
 ## Commands
 
 The full command reference, written for agents, is in [`protocols/tools.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/tools.md).
