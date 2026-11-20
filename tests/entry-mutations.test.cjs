@@ -194,6 +194,17 @@ test("rewrite does not corrupt a reference whose subject starts with the old sub
   assert.ok(!after.includes("Target revised suffix"));
 });
 
+test("rewrite preserves trailing whitespace on a rewritten reference", () => {
+  const referrer = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: Referrer";
+  const before = document(
+    `${referrer}\nRefers to the older one.\n  - ↪ trace: relates-to ${older}  \t\n\n` +
+    `${older}\nThe first note.\n  - ↪ trace: none (new topic)\n`
+  );
+  const corrected = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Older entry, corrected";
+  const after = run(before, (path) => { rewriteEntry(path, older, "Older entry, corrected\nCorrected.", runtime); });
+  assert.ok(after.includes(`  - ↪ trace: relates-to ${corrected}  \t\n`), "trailing whitespace is preserved");
+});
+
 test("the CLI rejects a repeated option", () => {
   const first = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: First isolated";
   const second = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Second isolated";
