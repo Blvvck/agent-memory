@@ -240,8 +240,14 @@ function runtimeFields(path: string, runtime: Record<string, unknown>, policy: L
   }
   const session = `${cli}:${sessionId}`;
   if (!validSession(session)) throw new ProtectedLogError("runtime session metadata is missing or invalid");
-  const agent = String(runtime.agent || runtime.active_agent || process.env.AGENT_NAME || "").trim();
+  const claimed = String(runtime.agent || runtime.active_agent || "").trim();
+  const active = String(process.env.AGENT_NAME || "").trim();
+  const agent = claimed || active;
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(agent)) throw new ProtectedLogError("active agent metadata is missing or invalid");
+  if (claimed && active && claimed.toLowerCase() !== active.toLowerCase()) throw new ProtectedLogError(
+    `--agent ${claimed} does not match the harness-provided active agent ${active}`,
+    "Pass the agent name the harness set in AGENT_NAME, or unset AGENT_NAME when no harness identity is available."
+  );
   const context = policy.requireContext ? projectFor(path, runtime) : "";
   return { context, agent, session };
 }
@@ -523,11 +529,18 @@ function hasStaleReference(found: Entry[], display: string): boolean {
   });
 }
 
-function referenceResolvesTo(value: string, found: Entry[], header: string): boolean {
+function referenceResolvesTo(value: string, found: Entry[], target: Entry): boolean {
   const candidate = value.startsWith("relates-to ") ? value.slice("relates-to ".length).trim() : value.trim();
   if (!candidate || candidate === "none (new topic)") return false;
-  if (candidate.includes(header) || candidate.includes(header.replace(/^[-*]\s+/, ""))) return true;
-  try { return resolveTarget(candidate, found) === header; }
+  if (candidate.includes(target.header) || candidate.includes(traceDisplay(target.header))) return true;
+  const timestamp = /\[(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)\]/.exec(candidate)?.[1];
+  if (timestamp) {
+    const agent = /@([A-Za-z][A-Za-z0-9_-]*)/.exec(candidate)?.[1];
+    const session = /\[session:([^\]]+)\]/.exec(candidate)?.[1];
+    const sameTimestamp = timestamp === target.timestamp || (timestamp.length === 10 && target.timestamp.startsWith(timestamp));
+    if (sameTimestamp && (!agent || agent === target.agent) && (!session || session === target.session)) return true;
+  }
+  try { return resolveTarget(candidate, found) === target.header; }
   catch (error) { return error instanceof ProtectedLogError && /ambiguous/.test(error.message); }
 }
 
@@ -624,7 +637,7 @@ export function deleteEntry(path: string, header: string, runtime: Record<string
     if (ownTraces.length !== 1) reasons.push("it does not have exactly one backward trace");
     else if (ownTraces[0][1].trim() !== "none (new topic)") reasons.push("it traces to an older entry");
     if (matches(forwardPattern, entry.body).length) reasons.push("a later entry traces to it");
-    const referenced = found.some((item) => item.header !== entry.header && [...matches(tracePattern, item.body), ...matches(forwardPattern, item.body)].some((match) => referenceResolvesTo(match[1], found, entry.header)));
+    const referenced = found.some((item) => item.header !== entry.header && [...matches(tracePattern, item.body), ...matches(forwardPattern, item.body)].some((match) => referenceResolvesTo(match[1], found, entry)));
     if (referenced) reasons.push("another entry references it");
     if (reasons.length) throw new ProtectedLogError(
       `this entry cannot be deleted because ${reasons.join(" and ")}`,
@@ -635,8 +648,9 @@ export function deleteEntry(path: string, header: string, runtime: Record<string
     const expected = found.filter((item) => item.header !== entry.header);
     if (updated.length !== expected.length || updated.some((item, index) => item.header !== expected[index].header)) throw new ProtectedLogError("delete changed entry identities or ordering");
     if (updated.some((item, index) => item.body !== expected[index].body)) throw new ProtectedLogError("delete changed an unrelated entry");
-    const newPreamble = updated.length ? after.slice(0, updated[0].start) : after;
-    if (newPreamble !== preambleOf(before, found)) throw new ProtectedLogError("protected log preamble changed");
+    const preamble = preambleOf(before, found);
+    const newPreamble = updated.length ? after.slice(0, updated[0].start) : after.slice(0, preamble.length);
+    if (newPreamble !== preamble) throw new ProtectedLogError("protected log preamble changed");
     atomicWrite(canonical, after);
     return { header: entry.header, removed: before.slice(entry.start, entry.end) };
   });

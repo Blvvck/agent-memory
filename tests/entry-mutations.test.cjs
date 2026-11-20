@@ -148,6 +148,82 @@ test("delete refuses another agent's entry", () => {
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
+test("delete removes the only entry and keeps authored sections", () => {
+  const only = "[2026-08-05T13:00:00Z] [demo] @Test [session:claude:abc12345]: Only entry";
+  const before = document(`${only}\nOnly prose.\n  - ↪ trace: none (new topic)\n`);
+  let removed = "";
+  const after = run(before, (path) => { removed = deleteEntry(path, only, runtime).removed; });
+  assert.ok(!after.includes(only));
+  assert.equal(after, before.replace(removed, ""));
+  assert.match(after, /## Authored Reference/);
+  assert.match(after, /- authored content stays/);
+});
+
+test("delete removes the first entry and keeps the rest in order", () => {
+  const first = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: First isolated";
+  const second = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Second isolated";
+  const before = document(`${first}\nOne.\n  - ↪ trace: none (new topic)\n\n${second}\nTwo.\n  - ↪ trace: none (new topic)\n`);
+  const after = run(before, (path) => { deleteEntry(path, first, runtime); });
+  assert.ok(!after.includes(first));
+  assert.ok(after.indexOf(second) > after.indexOf("## Work Log"));
+  assert.match(after, /- authored content stays/);
+});
+
+test("delete refuses a malformed stable reference that carries trailing text", () => {
+  const contents = document(
+    `${newest}\nMentions the older work.\n  - ↪ trace: relates-to [2026-08-05T14:00:00Z] @Test [session:claude:abc12345] with trailing text\n\n` +
+    `${older}\nThe first note.\n  - ↪ trace: none (new topic)\n`
+  );
+  const { path, directory } = fixture(contents);
+  try { assert.throws(() => deleteEntry(path, older, runtime), /another entry references it/); }
+  finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("rewrite preserves multiple forward traces on the target", () => {
+  const mid = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Middle entry";
+  const lateA = "[2026-08-05T16:00:00Z] [demo] @Test [session:claude:abc12345]: Later entry A";
+  const lateB = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: Later entry B";
+  const before = document(
+    `${lateA}\nA.\n  - ↪ trace: relates-to ${mid}\n\n` +
+    `${lateB}\nB.\n  - ↪ trace: relates-to ${mid}\n\n` +
+    `${mid}\nMiddle prose.\n  - ↪ trace: none (new topic)\n  - ↪ trace-forward: ${lateA}\n  - ↪ trace-forward: ${lateB}\n`
+  );
+  const corrected = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Middle entry, corrected";
+  const after = run(before, (path) => { rewriteEntry(path, mid, "Middle entry, corrected\nCorrected.", runtime); });
+  assert.ok(after.includes(corrected));
+  assert.equal(after.split(corrected).length - 1, 3, "entry plus two backward references");
+  assert.ok(after.includes(`trace-forward: ${lateA}`));
+  assert.ok(after.includes(`trace-forward: ${lateB}`));
+});
+
+test("a harness-provided active agent cannot be overridden", () => {
+  const { path, directory } = fixture(linked());
+  const previous = process.env.AGENT_NAME;
+  process.env.AGENT_NAME = "Test";
+  try {
+    assert.throws(() => editEntry(path, older, "Not mine.", OTHER), /does not match the harness-provided active agent/);
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_NAME;
+    else process.env.AGENT_NAME = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the CLI supports --header-file and --json", () => {
+  const { path, directory } = fixture(linked());
+  const headerFile = join(directory, "header.txt");
+  writeFileSync(headerFile, `${isolated}\n`, "utf8");
+  try {
+    const writer = join(__dirname, "..", "dist", "agent-log.js");
+    const result = spawnSync(process.execPath, [writer, "--file", path, "--delete", "--header-file", headerFile, "--json", "--agent", "Test", "--cli", "claude", "--session-id", "abc12345", "--project", "demo"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    const parsed = JSON.parse(result.stdout.trim());
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.deleted, isolated);
+    assert.match(parsed.entry, /A note nothing links to\./);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("the CLI rejects two mutation modes at once", () => {
   const { path, directory } = fixture(linked());
   try {

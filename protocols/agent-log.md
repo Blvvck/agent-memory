@@ -59,4 +59,8 @@ Three modes change an existing entry, and only its author may run them:
 
 Pass `--header` the entry's exact header line, or `--header-file` when the line contains shell characters. When a subject changes, `--rewrite` updates every `trace` and `trace-forward` line that quotes the old header in the same atomic write.
 
+Traces are file-local. `--trace` resolves against entries in the target file, so the writer never creates a cross-file reference, and `--delete` checks the complete set of entries that can reference the entry it removes.
+
+The writer records the agent named by `--agent`. When the harness sets `AGENT_NAME`, a different `--agent` is refused, but on a shared filesystem the writer cannot authenticate the caller. Treat the author rule as a guardrail against mistakes rather than a security boundary, and treat another agent's body as read-only even though the writer cannot prove who runs it.
+
 Write project activity to `ACTIVITY.md` in the project's selected memory directory, as recorded in `.agent-memory-layout`. Write global activity to `~/.agent-memory/ACTIVITY.md`. These logs serve different scopes.
