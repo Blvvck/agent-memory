@@ -1,6 +1,6 @@
 {
   "name": "@daimones/agent-memory",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Persistent memory and a reusable body structure for AI agents",
   "keywords": [
     "agent",
