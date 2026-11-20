@@ -520,7 +520,12 @@ function preambleOf(text: string, found: Entry[]): string {
 }
 
 function rewriteTraceReferences(text: string, oldDisplay: string, newDisplay: string): string {
-  return text.replace(/(^[^\n]*↪\s*trace(?:-forward)?:[^\n]*)/gm, (line) => line.replaceAll(oldDisplay, newDisplay));
+  return text.replace(/^([^\n]*↪[ \t]*trace(?:-forward)?:[ \t]*)(.+?)[ \t]*$/gm, (line, prefix: string, value: string) => {
+    const current = value.trim();
+    if (current === oldDisplay) return `${prefix}${newDisplay}`;
+    if (current === `relates-to ${oldDisplay}`) return `${prefix}relates-to ${newDisplay}`;
+    return line;
+  });
 }
 
 function hasStaleReference(found: Entry[], display: string): boolean {

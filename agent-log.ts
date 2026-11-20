@@ -5,9 +5,10 @@ import { resolve } from "node:path";
 import { ProtectedLogError, deleteEntry, editEntry, repairBackwardTrace, repairBulletTraceMarkers, repairEntryHeader, retagEntry, rewriteEntry, writeEntry } from "./protected-log";
 
 function option(args: string[], name: string): string | undefined {
-  const index = args.indexOf(name);
-  if (index < 0) return undefined;
-  const value = args[index + 1];
+  const indexes = args.flatMap((arg, index) => arg === name ? [index] : []);
+  if (indexes.length > 1) throw new ProtectedLogError(`${name} is repeated; pass it once`);
+  if (!indexes.length) return undefined;
+  const value = args[indexes[0] + 1];
   if (!value || value.startsWith("--")) throw new ProtectedLogError(`${name} requires a value`);
   return value;
 }

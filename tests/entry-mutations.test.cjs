@@ -179,6 +179,36 @@ test("delete refuses a malformed stable reference that carries trailing text", (
   finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
+test("rewrite does not corrupt a reference whose subject starts with the old subject", () => {
+  const target = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Target";
+  const suffix = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Target suffix";
+  const referrer = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: Referrer";
+  const before = document(
+    `${referrer}\nRefers to the longer one.\n  - ↪ trace: relates-to ${suffix}\n\n` +
+    `${suffix}\nLonger.\n  - ↪ trace: none (new topic)\n  - ↪ trace-forward: ${referrer}\n\n` +
+    `${target}\nShorter.\n  - ↪ trace: none (new topic)\n`
+  );
+  const after = run(before, (path) => { rewriteEntry(path, target, "Target revised\nRevised prose.", runtime); });
+  assert.ok(after.includes(`relates-to ${suffix}`), "the longer reference is untouched");
+  assert.ok(after.includes(`trace-forward: ${referrer}`), "the forward line is untouched");
+  assert.ok(!after.includes("Target revised suffix"));
+});
+
+test("the CLI rejects a repeated option", () => {
+  const first = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: First isolated";
+  const second = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Second isolated";
+  const { path, directory } = fixture(document(`${first}\nOne.\n  - ↪ trace: none (new topic)\n\n${second}\nTwo.\n  - ↪ trace: none (new topic)\n`));
+  try {
+    const writer = join(__dirname, "..", "dist", "agent-log.js");
+    const result = spawnSync(process.execPath, [writer, "--file", path, "--delete", "--header", first, "--header", second, "--agent", "Test", "--cli", "claude", "--session-id", "abc12345", "--project", "demo"], { encoding: "utf8" });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /--header is repeated/);
+    const text = readFileSync(path, "utf8");
+    assert.ok(text.includes(first));
+    assert.ok(text.includes(second));
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("rewrite preserves multiple forward traces on the target", () => {
   const mid = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Middle entry";
   const lateA = "[2026-08-05T16:00:00Z] [demo] @Test [session:claude:abc12345]: Later entry A";
