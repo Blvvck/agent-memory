@@ -387,9 +387,10 @@ function atomicMutation(path: string, policy: LogPolicy, mutate: (before: string
   });
 }
 
-export function repairBulletTraceMarkers(path: string, header: string): void {
+export function repairBulletTraceMarkers(path: string, header: string, runtime: Record<string, unknown> = {}): void {
   const canonical = canonicalProtectedLogPath(path);
   const policy = policyForPath(canonical);
+  runtimeFields(canonical, runtime, policy);
   atomicMutation(canonical, policy, (before, found) => {
     const entry = found.find((item) => item.header === header);
     if (!entry || found.filter((item) => item.header === header).length !== 1) throw new ProtectedLogError("repair header must resolve to exactly one entry");

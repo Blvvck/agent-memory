@@ -101,8 +101,8 @@ function main(): number {
       return emitSuccess(json, { ok: true, file: resolve(path), repaired });
     }
     if (args.includes("--repair-bullet-traces")) {
-      if (!path || !header) throw new ProtectedLogError("bullet-trace repair requires --file and --header");
-      repairBulletTraceMarkers(path, header);
+      if (!path || !header || !agent || !cli || !sessionId) throw new ProtectedLogError("bullet-trace repair requires --file, --header, --agent, --cli, and --session-id");
+      repairBulletTraceMarkers(path, header, runtime);
       return emitSuccess(json, { ok: true, file: resolve(path), repaired: header });
     }
     if (!path || (inlineContent === undefined) === (contentFile === undefined) || !trace || !agent || !cli || !sessionId) {

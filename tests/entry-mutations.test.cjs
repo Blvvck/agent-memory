@@ -4,7 +4,7 @@ const { spawnSync } = require("node:child_process");
 const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
-const { deleteEntry, editEntry, rewriteEntry } = require("../dist/protected-log.js");
+const { deleteEntry, editEntry, repairBulletTraceMarkers, rewriteEntry } = require("../dist/protected-log.js");
 
 const runtime = { agent: "Test", cli: "claude", session_id: "abc12345", project: "demo" };
 const OTHER = { agent: "Other", cli: "claude", session_id: "def67890", project: "demo" };
@@ -194,6 +194,26 @@ test("rewrite preserves multiple forward traces on the target", () => {
   assert.equal(after.split(corrected).length - 1, 3, "entry plus two backward references");
   assert.ok(after.includes(`trace-forward: ${lateA}`));
   assert.ok(after.includes(`trace-forward: ${lateB}`));
+});
+
+test("bullet-trace repair validates the harness agent like every other write", () => {
+  const target = "[2026-08-05T14:00:00Z] [demo] @Test [session:claude:abc12345]: Target entry";
+  const source = "[2026-08-05T15:00:00Z] [demo] @Test [session:claude:abc12345]: Source entry";
+  const contents = document(`${source}\nProse.\n  - ↪ trace: relates-to - ${target}\n\n${target}\nTarget prose.\n  - ↪ trace: none (new topic)\n`);
+  const { path, directory } = fixture(contents);
+  const previous = process.env.AGENT_NAME;
+  try {
+    process.env.AGENT_NAME = "Test";
+    assert.throws(() => repairBulletTraceMarkers(path, source, OTHER), /does not match the harness-provided active agent/);
+    repairBulletTraceMarkers(path, source, runtime);
+    const text = readFileSync(path, "utf8");
+    assert.ok(!text.includes("relates-to - ["));
+    assert.ok(text.includes(`relates-to ${target}`));
+  } finally {
+    if (previous === undefined) delete process.env.AGENT_NAME;
+    else process.env.AGENT_NAME = previous;
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 test("a harness-provided active agent cannot be overridden", () => {
