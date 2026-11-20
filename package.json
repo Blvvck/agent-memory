@@ -55,7 +55,7 @@
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/mark-bins.mjs",
-    "test": "npm run build && node --test tests/protected-log-guard.test.cjs tests/work-log.test.cjs tests/scaffold.test.cjs tests/wake.test.cjs tests/wake-harnesses.test.cjs tests/bins.test.cjs tests/init.test.cjs tests/snapshot-claim.test.cjs tests/human-import.test.cjs",
+    "test": "npm run build && node --test tests/protected-log-guard.test.cjs tests/work-log.test.cjs tests/entry-mutations.test.cjs tests/scaffold.test.cjs tests/wake.test.cjs tests/wake-harnesses.test.cjs tests/bins.test.cjs tests/init.test.cjs tests/snapshot-claim.test.cjs tests/human-import.test.cjs",
     "postinstall": "node postinstall.mjs",
     "prepack": "npm run build"
   },

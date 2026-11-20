@@ -80,6 +80,8 @@ Entries follow one format so they stay sortable and attributable:
 
 `memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Write to them through `agent-log`, which validates the metadata, takes a lock, and replaces the file atomically. Direct edits are blocked, because a half-written memory file is worse than no memory file. Every protected log has a `## Work Log` section near the top; new entries go there, and authored history or reference material below stays.
 
+An entry can be corrected through the same writer: `--edit` replaces its prose, `--rewrite` replaces its subject and prose and updates every reference, and `--delete` removes it only when nothing traces to it or from it. A linked entry is corrected by adding a new entry that traces to it, so the correction stays visible.
+
 The full procedures are in [`protocols/`](https://github.com/Blvvck/agent-memory/blob/main/protocols/README.md): [session lifecycle](https://github.com/Blvvck/agent-memory/blob/main/protocols/session-lifecycle.md), [agent logging](https://github.com/Blvvck/agent-memory/blob/main/protocols/agent-log.md), [new agents](https://github.com/Blvvck/agent-memory/blob/main/protocols/new-agent.md), [new projects](https://github.com/Blvvck/agent-memory/blob/main/protocols/new-project.md), and [named subagent wakes](https://github.com/Blvvck/agent-memory/blob/main/protocols/subagent-wake.md).
 
 ## Traces
@@ -165,7 +167,7 @@ The full command reference, written for agents, is in [`protocols/tools.md`](htt
 | Command | Purpose | Key options |
 |---------|---------|-------------|
 | `agent-memory init` | Create global memory, project memory, agent bodies, and harness wiring | `--project`, `--global-only`, `--layout`, `--harness`, `--agent`, `--role`, `--agent-scope`, `--work`, `--team`, `--global-team`, `--yes` |
-| `agent-log` | Write one validated, timestamped entry to a protected log | `--file`, `--content` or `--content-file`, `--trace`, `--agent`, `--cli`, `--session-id`, `--project` |
+| `agent-log` | Write, correct, or remove one validated entry in a protected log | `--file`, `--content` or `--content-file`, `--trace`, `--header`, `--edit`, `--rewrite`, `--delete`, `--agent`, `--cli`, `--session-id`, `--project` |
 | `trace-search` | Find older entries worth linking to | `trace-search <file> <keyword...>`, `--multi`, `--json`, `--limit` |
 | `agent-memory skills` | Rebuild the skills index for the current scopes | `--global`, `--project`, `--quiet` |
 | `agent-memory sessions` | List or search session transcripts across harnesses | `--list`, `--search`, `--harness`, `--project`, `--since`, `--limit`, `--context`, `--json` |

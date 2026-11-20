@@ -39,7 +39,13 @@ agent-log --file <path> --content "what happened" \
 | `--file` | Target protected log |
 | `--content` / `--content-file` | Entry body |
 | `--trace` | Exact older entry header or `none (new topic)` |
+| `--header` / `--header-file` | Exact existing entry header for a correction |
+| `--edit` | Replace the entry's prose; subject and trace lines stay |
+| `--rewrite` | Replace the entry's subject and prose; every reference updates |
+| `--delete` | Remove an entry only when it has no trace links |
 | `--agent`, `--cli`, `--session-id`, `--project` | Identity metadata; all required |
+
+`--edit`, `--rewrite`, and `--delete` change one existing entry, and only its author may run them. `--delete` refuses any entry with a trace link; add a new entry that corrects it and pass the original header as `--trace`. Narrow repairs also exist: `--repair-entry` drops a nested writer header pasted into a subject, `--repair-backward-trace` links an entry that used `none (new topic)`, `--repair-bullet-traces` strips a stray bullet inside a trace marker, and `--retag` changes an entry's project tag.
 
 Protected logs: `memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, `NOTIFICATIONS.md`. Never edit them directly. See `agent-log.md`.
 

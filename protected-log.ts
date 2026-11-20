@@ -3,7 +3,12 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { projectMemoryRoot } from "./memory-paths";
 
-export class ProtectedLogError extends Error {}
+export class ProtectedLogError extends Error {
+  constructor(message: string, readonly nextSteps?: string) {
+    super(message);
+    this.name = "ProtectedLogError";
+  }
+}
 
 export interface LogPolicy {
   name: string;
@@ -500,5 +505,139 @@ export function retagEntry(path: string, header: string, runtime: Record<string,
     if (oldPreamble !== newPreamble) throw new ProtectedLogError("protected log preamble changed");
     atomicWrite(canonical, updated);
     return newHeader;
+  });
+}
+
+function preambleOf(text: string, found: Entry[]): string {
+  return found.length ? text.slice(0, found[0].start) : text;
+}
+
+function rewriteTraceReferences(text: string, oldDisplay: string, newDisplay: string): string {
+  return text.replace(/(^[^\n]*↪\s*trace(?:-forward)?:[^\n]*)/gm, (line) => line.replaceAll(oldDisplay, newDisplay));
+}
+
+function hasStaleReference(found: Entry[], display: string): boolean {
+  return found.some((entry) => {
+    const values = [...matches(tracePattern, entry.body), ...matches(forwardPattern, entry.body)].map((match) => match[1].trim());
+    return values.some((value) => value === display || value === `relates-to ${display}`);
+  });
+}
+
+function referenceResolvesTo(value: string, found: Entry[], header: string): boolean {
+  const candidate = value.startsWith("relates-to ") ? value.slice("relates-to ".length).trim() : value.trim();
+  if (!candidate || candidate === "none (new topic)") return false;
+  if (candidate.includes(header) || candidate.includes(header.replace(/^[-*]\s+/, ""))) return true;
+  try { return resolveTarget(candidate, found) === header; }
+  catch (error) { return error instanceof ProtectedLogError && /ambiguous/.test(error.message); }
+}
+
+function assertSingleEntryMutation(original: Entry[], updated: Entry[], header: string, expectedBody: string, before: string, after: string): void {
+  if (updated.length !== original.length) throw new ProtectedLogError("mutation changed the number of entries");
+  if (updated.some((entry, index) => entry.header !== original[index].header)) throw new ProtectedLogError("mutation changed entry identities or ordering");
+  const targetIndex = original.findIndex((entry) => entry.header === header);
+  if (updated[targetIndex].body !== expectedBody) throw new ProtectedLogError("mutation produced an unexpected body");
+  for (let index = 0; index < original.length; index++) {
+    if (index !== targetIndex && updated[index].body !== original[index].body) throw new ProtectedLogError("mutation changed an unrelated entry");
+  }
+  if (preambleOf(before, original) !== preambleOf(after, updated)) throw new ProtectedLogError("protected log preamble changed");
+}
+
+export function editEntry(path: string, header: string, content: string, runtime: Record<string, unknown>): string {
+  const canonical = canonicalProtectedLogPath(path);
+  const policy = policyForPath(canonical);
+  const { agent } = runtimeFields(canonical, runtime, policy);
+  return withLock(canonical, () => {
+    const before = readFileSync(canonical, "utf8");
+    const found = validateDocument(before, policy, true);
+    const entry = resolveRepairEntry(header.trim(), found);
+    if (!entry.strict) throw new ProtectedLogError("entry predates strict writer metadata, so it cannot be edited; add a correcting entry instead");
+    if (entry.agent !== agent) throw new ProtectedLogError(`agents may edit only their own entries; this entry belongs to @${entry.agent}`);
+    const prose = content.trim();
+    if (!prose) throw new ProtectedLogError("edited content is empty");
+    if (matches(tracePattern, prose).length || matches(forwardPattern, prose).length) throw new ProtectedLogError("the writer owns trace lines; edit only the entry prose");
+    const traces = matches(tracePattern, entry.body);
+    if (traces.length !== 1) throw new ProtectedLogError("entry must contain exactly one backward trace before it can be edited");
+    const traceIndex = Math.min(traces[0].index ?? 0, ...matches(forwardPattern, entry.body).map((match) => match.index ?? 0));
+    const rebuiltBody = `${prose}\n${entry.body.slice(traceIndex)}`;
+    const after = before.slice(0, entry.bodyStart) + rebuiltBody + before.slice(entry.end);
+    const updated = validateDocument(after, policy, true);
+    assertSingleEntryMutation(found, updated, entry.header, rebuiltBody, before, after);
+    atomicWrite(canonical, after);
+    return entry.header;
+  });
+}
+
+export function rewriteEntry(path: string, header: string, content: string, runtime: Record<string, unknown>): string {
+  const canonical = canonicalProtectedLogPath(path);
+  const policy = policyForPath(canonical);
+  const { agent } = runtimeFields(canonical, runtime, policy);
+  return withLock(canonical, () => {
+    const before = readFileSync(canonical, "utf8");
+    const found = validateDocument(before, policy, true);
+    const entry = resolveRepairEntry(header.trim(), found);
+    if (!entry.strict) throw new ProtectedLogError("entry predates strict writer metadata, so it cannot be rewritten; add a correcting entry instead");
+    if (entry.agent !== agent) throw new ProtectedLogError(`agents may rewrite only their own entries; this entry belongs to @${entry.agent}`);
+    const prose = content.trim();
+    if (!prose) throw new ProtectedLogError("rewritten content is empty");
+    if (matches(tracePattern, prose).length || matches(forwardPattern, prose).length) throw new ProtectedLogError("the writer owns trace lines; rewrite only the subject and prose");
+    const traces = matches(tracePattern, entry.body);
+    if (traces.length !== 1) throw new ProtectedLogError("entry must contain exactly one backward trace before it can be rewritten");
+    const lines = prose.split(/\r?\n/);
+    const subject = lines[0].trim();
+    if (!subject) throw new ProtectedLogError("rewritten subject is empty");
+    const oldSubject = entry.header.slice(entry.header.indexOf("]: ") + 3);
+    if (subject === oldSubject) throw new ProtectedLogError("rewrite would not change the subject; use --edit to change only the prose");
+    const prefix = entry.header.match(/^[-*]\s+/)?.[0] ?? "";
+    const newHeader = `${prefix}[${entry.timestamp}]${entry.context ? ` [${entry.context}]` : ""} @${entry.agent} [session:${entry.session}]: ${subject}`;
+    if (found.some((item) => item.header === newHeader)) throw new ProtectedLogError("rewrite would duplicate an existing entry identity");
+    const rest = lines.slice(1).join("\n");
+    const traceIndex = Math.min(traces[0].index ?? 0, ...matches(forwardPattern, entry.body).map((match) => match.index ?? 0));
+    const newBody = rest ? `${rest}\n${entry.body.slice(traceIndex)}` : entry.body.slice(traceIndex);
+    let after = before.slice(0, entry.start) + `${newHeader}\n${newBody}` + before.slice(entry.end);
+    const oldDisplay = traceDisplay(entry.header);
+    const newDisplay = traceDisplay(newHeader);
+    after = rewriteTraceReferences(after, oldDisplay, newDisplay);
+    const updated = validateDocument(after, policy, true);
+    const expectedHeaders = found.map((item) => item.header === entry.header ? newHeader : item.header);
+    if (updated.length !== expectedHeaders.length || updated.some((item, index) => item.header !== expectedHeaders[index])) throw new ProtectedLogError("rewrite changed entry identities or ordering");
+    const expectedBodies = found.map((item) => item.header === entry.header ? newBody : rewriteTraceReferences(item.body, oldDisplay, newDisplay));
+    if (updated.some((item, index) => item.body !== expectedBodies[index])) throw new ProtectedLogError("rewrite changed text outside the entry and its trace references");
+    if (preambleOf(before, found) !== preambleOf(after, updated)) throw new ProtectedLogError("protected log preamble changed");
+    if (hasStaleReference(updated, oldDisplay)) throw new ProtectedLogError("rewrite left a stale reference to the old header");
+    atomicWrite(canonical, after);
+    return newHeader;
+  });
+}
+
+export function deleteEntry(path: string, header: string, runtime: Record<string, unknown>): { header: string; removed: string } {
+  const canonical = canonicalProtectedLogPath(path);
+  const policy = policyForPath(canonical);
+  const { agent } = runtimeFields(canonical, runtime, policy);
+  return withLock(canonical, () => {
+    const before = readFileSync(canonical, "utf8");
+    const found = validateDocument(before, policy, true);
+    const entry = resolveRepairEntry(header.trim(), found);
+    if (!entry.strict) throw new ProtectedLogError("entry predates strict writer metadata, so it cannot be deleted; add a correcting entry instead");
+    if (entry.agent !== agent) throw new ProtectedLogError(`agents may delete only their own entries; this entry belongs to @${entry.agent}`);
+    const reasons: string[] = [];
+    const ownTraces = matches(tracePattern, entry.body);
+    if (ownTraces.length !== 1) reasons.push("it does not have exactly one backward trace");
+    else if (ownTraces[0][1].trim() !== "none (new topic)") reasons.push("it traces to an older entry");
+    if (matches(forwardPattern, entry.body).length) reasons.push("a later entry traces to it");
+    const referenced = found.some((item) => item.header !== entry.header && [...matches(tracePattern, item.body), ...matches(forwardPattern, item.body)].some((match) => referenceResolvesTo(match[1], found, entry.header)));
+    if (referenced) reasons.push("another entry references it");
+    if (reasons.length) throw new ProtectedLogError(
+      `this entry cannot be deleted because ${reasons.join(" and ")}`,
+      "Delete is allowed only for an entry with no trace links. Add a new entry that records the correction, and pass this entry's header as --trace so the correction stays visible and the original remains traceable."
+    );
+    const after = before.slice(0, entry.start) + before.slice(entry.end);
+    const updated = validateDocument(after, policy, true);
+    const expected = found.filter((item) => item.header !== entry.header);
+    if (updated.length !== expected.length || updated.some((item, index) => item.header !== expected[index].header)) throw new ProtectedLogError("delete changed entry identities or ordering");
+    if (updated.some((item, index) => item.body !== expected[index].body)) throw new ProtectedLogError("delete changed an unrelated entry");
+    const newPreamble = updated.length ? after.slice(0, updated[0].start) : after;
+    if (newPreamble !== preambleOf(before, found)) throw new ProtectedLogError("protected log preamble changed");
+    atomicWrite(canonical, after);
+    return { header: entry.header, removed: before.slice(entry.start, entry.end) };
   });
 }

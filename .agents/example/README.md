@@ -67,7 +67,7 @@ Every entry uses the same shape:
 - ↪ trace: relates-to [YYYY-MM-DDTHH:MM:SSZ] [project] @Agent [session:cli:ID]: The older entry
 ```
 
-Write through `agent-log`, which validates the metadata, takes a lock, inserts at the Work Log, and adds the reciprocal forward trace to the older entry; never edit a protected log directly.
+Write through `agent-log`, which validates the metadata, takes a lock, inserts at the Work Log, and adds the reciprocal forward trace to the older entry; never edit a protected log directly. An entry can be corrected through the same writer: `--edit` changes its prose, `--rewrite` changes its subject and prose and updates references, and `--delete` removes it only when it has no trace links. A linked entry is corrected by a new entry that traces to it.
 
 ```bash
 agent-log --file ~/.agent-memory/agents/<name>/brain/memory.md \

@@ -151,6 +151,8 @@ Each entry points back to the older entry it relates to, and the older entry get
 
 `memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Do not edit them directly. Every write goes through `agent-log`, which validates the entry, takes a lock, replaces the file atomically, and inserts at the file's `## Work Log` section.
 
+An entry can be corrected through the same writer. `--edit` replaces its prose, `--rewrite` replaces its subject and prose and updates every reference, and `--delete` removes it only when it has no trace links. A linked entry is corrected by adding a new entry that traces to it, so the correction stays visible.
+
 ```bash
 agent-log --file .agents/example/brain/memory.md \
   --content "what happened, and what's next" \

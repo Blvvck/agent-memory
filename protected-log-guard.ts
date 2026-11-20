@@ -239,7 +239,7 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
     const cwd = String(input.workdir || input.cwd || payload.cwd || process.cwd());
     if (isWriterCommand(command, cwd)) return null;
     if ([...protectedNames].some((name) => command.toUpperCase().includes(name)) && shellMutates(command)) {
-      return `Direct shell mutation of protected agent memory is blocked. Use the installed agent-log writer for protected logging. ${command}`;
+      return `Direct shell mutation of protected agent memory is blocked. Use the installed agent-log writer for protected logging; --edit, --rewrite, and --delete correct or remove an existing entry. ${command}`;
     }
     return null;
   }
@@ -253,7 +253,7 @@ export function guardPayload(payload: Record<string, unknown>): string | null {
       return `Protected log routing is blocked: ${String(error)}`;
     }
   }
-  return `Direct mutation of protected agent logs is blocked: ${protectedFiles.join(", ")}. Use the installed agent-log writer.`;
+  return `Direct mutation of protected agent logs is blocked: ${protectedFiles.join(", ")}. Use the installed agent-log writer; --edit, --rewrite, and --delete correct or remove an existing entry.`;
 }
 
 if (require.main === module) {

@@ -43,4 +43,20 @@ agent-log --file ~/.agent-memory/agents/my-agent/brain/memory.md \
 
 For a related entry, use its complete existing header as `--trace`; the writer resolves it and adds the reciprocal forward trace. Use `none (new topic)` only when no existing entry relates to this one. If the writer rejects an entry or target, fix the input and retry through `agent-log`; do not edit the protected file directly.
 
+## Correct or remove an entry
+
+Append a correction when a mistake matters to a later reader: add a new entry and pass the mistaken entry's header as `--trace`, so both directions stay linked.
+
+Three modes change an existing entry, and only its author may run them:
+
+| Mode | Changes | Keeps |
+|---|---|---|
+| `--edit --header HEADER --content TEXT` | the prose | subject, metadata, trace lines |
+| `--rewrite --header HEADER --content TEXT` | subject and prose | metadata, trace lines; every reference to the old header is rewritten |
+| `--delete --header HEADER` | removes the entry | allowed only when the entry has no trace links |
+
+`--delete` refuses an entry that traces to an older entry, an entry that a later entry traces to, or an entry that another entry references. Removing a linked entry would leave a dangling trace or erase the reason another entry points at it. In that case add a new entry that records the correction and pass the original header as `--trace`, so the correction is visible and the original stays traceable.
+
+Pass `--header` the entry's exact header line, or `--header-file` when the line contains shell characters. When a subject changes, `--rewrite` updates every `trace` and `trace-forward` line that quotes the old header in the same atomic write.
+
 Write project activity to `ACTIVITY.md` in the project's selected memory directory, as recorded in `.agent-memory-layout`. Write global activity to `~/.agent-memory/ACTIVITY.md`. These logs serve different scopes.
