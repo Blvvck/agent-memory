@@ -1,8 +1,33 @@
 {
-  "name": "@blvvck/agent-memory",
-  "version": "0.1.0",
+  "name": "@daimones/agent-memory",
+  "version": "0.1.1",
   "description": "Persistent memory and a reusable body structure for AI agents",
+  "keywords": [
+    "agent",
+    "agents",
+    "ai",
+    "llm",
+    "memory",
+    "persistent-memory",
+    "context",
+    "agent-memory",
+    "claude-code",
+    "codex",
+    "opencode",
+    "antigravity",
+    "cursor",
+    "cli",
+    "markdown"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Blvvck/agent-memory.git"
+  },
+  "homepage": "https://github.com/Blvvck/agent-memory#readme",
+  "bugs": {
+    "url": "https://github.com/Blvvck/agent-memory/issues"
+  },
   "engines": {
     "node": ">=18"
   },

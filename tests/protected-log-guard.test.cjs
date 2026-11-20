@@ -66,7 +66,7 @@ test("only the installed writer is exempt, and never with a redirect", () => {
     writeFileSync(fakeNode, "process.exit(0)\n");
     assert.match(run(`node ${fakeNode} --file ${target}`), /Direct shell mutation/);
 
-    const packed = join(dir, "@blvvck", "agent-memory", "dist");
+    const packed = join(dir, "@daimones", "agent-memory", "dist");
     mkdirSync(packed, { recursive: true });
     const shaped = join(packed, "agent-log.js");
     writeFileSync(shaped, "process.exit(0)\n");

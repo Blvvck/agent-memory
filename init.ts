@@ -176,7 +176,7 @@ function printHelp(): void {
 
 Run this from the project you want to equip:
   agent-memory init
-  npx @blvvck/agent-memory init
+  npx @daimones/agent-memory init
 
 Options:
   --project             Set up the current directory as a project, even without a detected manifest

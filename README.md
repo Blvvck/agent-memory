@@ -9,14 +9,14 @@ The memory is plain Markdown, so you can read it, diff it, and fix it. The same 
 ## Quick start
 
 ```bash
-npm install -g @blvvck/agent-memory
+npm install -g @daimones/agent-memory
 agent-memory init
 ```
 
 Or run it once without installing:
 
 ```bash
-npx @blvvck/agent-memory init
+npx @daimones/agent-memory init
 ```
 
 Run it from the project you want to equip. Setup creates `~/.agent-memory/`, adds a memory directory to the project, and wires the harnesses you choose. Run `agent-memory init --help` for every option.
@@ -80,7 +80,7 @@ Entries follow one format so they stay sortable and attributable:
 
 `memory.md`, `learnings.md`, `patterns.md`, `ACTIVITY.md`, and `NOTIFICATIONS.md` are protected. Write to them through `agent-log`, which validates the metadata, takes a lock, and replaces the file atomically. Direct edits are blocked, because a half-written memory file is worse than no memory file. Every protected log has a `## Work Log` section near the top; new entries go there, and authored history or reference material below stays.
 
-The full procedures are in [`protocols/`](protocols/README.md): [session lifecycle](protocols/session-lifecycle.md), [agent logging](protocols/agent-log.md), [new agents](protocols/new-agent.md), [new projects](protocols/new-project.md), and [named subagent wakes](protocols/subagent-wake.md).
+The full procedures are in [`protocols/`](https://github.com/Blvvck/agent-memory/blob/main/protocols/README.md): [session lifecycle](https://github.com/Blvvck/agent-memory/blob/main/protocols/session-lifecycle.md), [agent logging](https://github.com/Blvvck/agent-memory/blob/main/protocols/agent-log.md), [new agents](https://github.com/Blvvck/agent-memory/blob/main/protocols/new-agent.md), [new projects](https://github.com/Blvvck/agent-memory/blob/main/protocols/new-project.md), and [named subagent wakes](https://github.com/Blvvck/agent-memory/blob/main/protocols/subagent-wake.md).
 
 ## Traces
 
@@ -100,7 +100,7 @@ An entry with many forward traces is one later work kept returning to, which is 
 
 `agent-memory init --agent <name>` copies the starter body from `.agents/example/` and fills in the name, plus the role when `--role` is provided. The body is 15 Markdown files, and each one explains what belongs in it, what to write first, and how it relates to the others. Start with the `README.md` in the copied body, then write `soul.md` and `work.md` before the relationship, belief, and log files. Delete the writing guides once the body has its own voice.
 
-Finished bodies for 18 roles are in [`examples/agents/`](examples/agents/README.md). They show how a complete body reads; the generic starter is the place to begin a new one.
+Finished bodies for 18 roles are in [`examples/agents/`](https://github.com/Blvvck/agent-memory/blob/main/examples/agents/README.md). They show how a complete body reads; the generic starter is the place to begin a new one.
 
 ### The body at a glance
 
@@ -154,11 +154,11 @@ Setup creates files but doesn't commit them. By default the global and project s
 
 `agent-memory init --agent <name>` creates a body and adds it to the roster in `AGENTS.md`. In Claude Code, a message that starts with `Hey <name>`, `Hi <name>`, `Yo <name>`, `@<name>`, or `<name>,` triggers the wake hook, which injects the body files the session must read before responding. An explicit `@<name>` works anywhere in a message, and phrases such as `ask <name> to review this` or `wake <name>` trigger the same wake. A bare name in the middle of a sentence doesn't, which avoids waking an agent because its name appeared in passing.
 
-A project-scoped body with the same name overrides the shared body for that project. In harnesses without the wake hook, delegate through the harness's subagent support and pass the body paths described in [`protocols/subagent-wake.md`](protocols/subagent-wake.md). The roster in `AGENTS.md` lists the names available in the scope.
+A project-scoped body with the same name overrides the shared body for that project. In harnesses without the wake hook, delegate through the harness's subagent support and pass the body paths described in [`protocols/subagent-wake.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/subagent-wake.md). The roster in `AGENTS.md` lists the names available in the scope.
 
 ## Commands
 
-The full command reference, written for agents, is in [`protocols/tools.md`](protocols/tools.md).
+The full command reference, written for agents, is in [`protocols/tools.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/tools.md).
 
 | Command | Purpose | Key options |
 |---------|---------|-------------|
@@ -209,7 +209,7 @@ agent-memory crons list
 agent-memory crons daemon --interval 30
 ```
 
-A cron created with `--as-human` runs directly. Without a flag, or with `--as-agent`, it starts as `pending-approval` until a person runs `agent-memory crons approve <id>`. `daemon` needs a process supervisor; missed runs execute once when it starts. The full procedure is in [`protocols/crons.md`](protocols/crons.md).
+A cron created with `--as-human` runs directly. Without a flag, or with `--as-agent`, it starts as `pending-approval` until a person runs `agent-memory crons approve <id>`. `daemon` needs a process supervisor; missed runs execute once when it starts. The full procedure is in [`protocols/crons.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/crons.md).
 
 Runners: `claude`, `codex`, `opencode`, `antigravity`, and `cursor`. Override any command template in `~/.agent-memory/scheduler.json`. `--timezone` sets the zone used by a cron expression.
 
@@ -225,7 +225,7 @@ agent-memory backup restore --latest --to /tmp/memory-review
 agent-memory backup rollback --before "2026-11-18T09:00:00Z"
 ```
 
-Restores default to a temporary directory. `--in-place --yes` merges into the live memory after taking a pre-restore snapshot. The full procedure is in [`protocols/backup.md`](protocols/backup.md).
+Restores default to a temporary directory. `--in-place --yes` merges into the live memory after taking a pre-restore snapshot. The full procedure is in [`protocols/backup.md`](https://github.com/Blvvck/agent-memory/blob/main/protocols/backup.md).
 
 ## What setup creates
 
@@ -263,6 +263,8 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 | Stop | Checks for an unfinished trace and asks for the sync before the turn ends. |
 | Session end | Takes a background snapshot and closes the session record. |
 
+Waking a named agent doesn't depend on hooks. `AGENTS.md` tells every harness to open the addressed body and become it, and a delegated subagent receives the same contract in its spawn prompt, so the behavior works even where no hook runs. The table records which harnesses also automate the reminder: Claude Code, Codex, and OpenCode add the wake protocol to the model context, Antigravity delivers it as an injected step, and Cursor's prompt hook exposes only a user-facing message, so its reminder reaches the person rather than the model.
+
 | Harness | Session start | Prompt | Pre-tool guard | Post-tool | Compaction | Stop | Session end | Wake reminder | Wake delivery |
 |---------|---------------|--------|----------------|-----------|------------|------|-------------|---------------|---------------|
 | Claude Code | yes | yes | yes | yes | yes | yes | yes | yes | model context |
@@ -271,15 +273,13 @@ Hooks capture prompts and completed tool calls in a per-session journal and chec
 | Antigravity | yes | yes | yes | yes | no | yes | no | yes | injected step |
 | Cursor | yes | yes | yes | yes | yes | yes | yes | yes | user message |
 
-Waking a named agent doesn't depend on hooks. `AGENTS.md` tells every harness to open the addressed body and become it, and a delegated subagent receives the same contract in its spawn prompt, so the behavior works even where no hook runs. The table records which harnesses also automate the reminder: Claude Code, Codex, and OpenCode add the wake protocol to the model context, Antigravity delivers it as an injected step, and Cursor's prompt hook exposes only a user-facing message, so its reminder reaches the person rather than the model.
-
 OpenCode runs through a plugin rather than shell hooks: it injects context through the plugin's system-prompt transform, records tool calls, and closes the session when the session is deleted, since an idle turn isn't the end of the session, but it can't block a direct protected-file write and exposes no stop hook. Antigravity exposes no compaction or session-end event, and it skips hooks for tools its permission rules already allow, so a protected write is gated only when it needs approval. A harness without hooks still uses the same memory; the hooks add automation and guards around it.
 
 ## Agent bodies
 
-Start from [`.agents/example/`](.agents/example/) when the identity is blank, or choose a complete role body from [`examples/agents/`](examples/agents/README.md). The role examples cover orchestration, design and technical PM, frontend, backend, QA, DevOps, terminal systems, ML systems, ML memory, content, growth, finance, AI research, AI safety, Go services, and Rust systems. Each one is a full body with an authored persona, working standards, and labeled formative history.
+Start from [`.agents/example/`](https://github.com/Blvvck/agent-memory/tree/main/.agents/example) when the identity is blank, or choose a complete role body from [`examples/agents/`](https://github.com/Blvvck/agent-memory/blob/main/examples/agents/README.md). The role examples cover orchestration, design and technical PM, frontend, backend, QA, DevOps, terminal systems, ML systems, ML memory, content, growth, finance, AI research, AI safety, Go services, and Rust systems. Each one is a full body with an authored persona, working standards, and labeled formative history.
 
-A project-scoped body lives under `agents/<name>/` in the project's memory directory and overrides a shared body with the same name. Setup registers each new body in the scope's named-agent table, so every agent can see who is available. After scaffolding, follow the [new-agent procedure](protocols/new-agent.md) and complete a first wake before delegating work.
+A project-scoped body lives under `agents/<name>/` in the project's memory directory and overrides a shared body with the same name. Setup registers each new body in the scope's named-agent table, so every agent can see who is available. After scaffolding, follow the [new-agent procedure](https://github.com/Blvvck/agent-memory/blob/main/protocols/new-agent.md) and complete a first wake before delegating work.
 
 ## Platforms and dependencies
 
@@ -354,4 +354,4 @@ The runtime is TypeScript compiled to JavaScript and runs on Node.js 18 or later
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](https://github.com/Blvvck/agent-memory/blob/main/LICENSE).

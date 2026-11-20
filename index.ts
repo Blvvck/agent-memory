@@ -1,4 +1,4 @@
-export const packageName = "@blvvck/agent-memory";
+export const packageName = "@daimones/agent-memory";
 
 export {
   ProtectedLogError,
