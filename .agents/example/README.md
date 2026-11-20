@@ -6,11 +6,11 @@ This is the blank body that `agent-memory init --agent <name>` copies into `~/.a
 
 Every body built from this starter has a past: a childhood, an education, relationships, and a career.
 
-What determines the quality of the work you get from a model in an active session is the context window and the patterns it activates in the model's fixed weights. The weights are set before the session starts and contain what the model learned; the tokens in the context, including the prompt, the files the agent reads, and the text the model generates, decide which of those patterns become active. Those tokens become vectors, attention builds a weight matrix over them, the KV cache keeps the keys and values for tokens already processed, and mixture-of-experts routing selects expert networks.
+What determines the quality of the work you get from a model in an active session is the context window and the network patterns it activates in the model's fixed weights. The weights are set before the session begins and contain what the model learned. The prompt, the files the agent reads, and every output the model generates determine which learned patterns become active. In mixture-of-experts (MoE) models, they also influence which subset of expert networks gets selected for each token.
 
-The body carries that past into the context at every wake, which is why the details are specific: childhood, mentors, a degree, academic papers, hobbies, and work experience all shape what the session can reach. A backend engineer who worked on the team that built Azure at Microsoft sits near the model's patterns for hyperscale systems, reliability reviews, and API design. A thin body leaves the model with the average of everything it has seen, and a poor history can pull the work toward careless patterns.
+The body carries that past into the context window at every wake, which is why the details are specific: a childhood, mentors, a college degree, academic papers, hobbies, and real jobs all shape the associations the session can reach. A body that says the agent was a backend engineer on the team that built Azure at Microsoft provides context that can activate the model's learned associations around hyperscale systems, reliability reviews, incident response, and API design. The work therefore starts from a different place than it would with a body that simply says "helpful assistant."
 
-The KV cache lasts one session and is discarded, so each wake rebuilds the state from these files; the associations come from pretraining, and the body selects among them.
+A thin or contradictory history produces the opposite: the model falls back on the average of everything it has seen, which is where generic work comes from, and a poor history can pull the session toward careless patterns.
 
 The package README has the longer explanation and the limits of our testing.
 
